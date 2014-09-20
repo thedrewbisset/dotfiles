@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -e
+
+function copy {
+  source_path=$1
+  target_path=$2
+  
+  if [ ! -e $target_path ]; then
+    echo "Copying $source_path to $target_path"
+    cp -r $source_path $target_path
+  else
+    echo "Overwrite $target_path? (y/n)\n"
+    read yn
+    if [ $yn = "y" ]; then
+      cp -r $source_path $target_path
+    fi
+  fi
+}
+
+dir=$PWD
+if [[ ! "$dir/bin/install" -ef "$0" ]]; then
+  echo "Please run 'bin/install' from dotmatrix root folder"
+  exit 1
+fi
+
+# Ensure presence of directory for vim undo files
+undo_dir_path="Library/Vim/undo"
+if [ ! -d $HOME/$undo_dir_path ]; then
+  echo -n "Creating"
+  mkdir -p $HOME/$undo_dir_path
+fi
+
+# Symlink dotfiles
+includes=".vim"
+excludes=".gitignore"
+base="$(find . -maxdepth 1 -name '.*' -not -name '.*.local' -type f | sed 's#^\./##' | grep -vF $excludes)"
+files="$base $includes"
+
+for dotfile in $files; do
+  source_path="$dir/$dotfile"
+  target_path="$HOME/$dotfile"
+
+  [ -e $source_path ] || continue
+
+  copy $source_path $target_path
+done
