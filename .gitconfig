@@ -1,3 +1,6 @@
 [user]
 	email = andrew.bisset@gmail.com
 	name = Drew Bisset
+
+[push]
+  default = simple
