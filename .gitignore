@@ -1,0 +1,4 @@
+*.swp
+.vimbundles
+.stash/*
+!.stash/.keep
