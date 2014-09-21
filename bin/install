@@ -32,4 +32,4 @@ for dotfile in $files; do
 done
 
 # Install Vim Bundles
-sh "./bin/vimbundles.sh"
+source "bin/vimbundles"

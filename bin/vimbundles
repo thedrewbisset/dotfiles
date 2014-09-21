@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 source 'bin/lib/tools'
+echo $PWD
 
 get_bundle() {
   (
@@ -14,10 +15,10 @@ get_bundle() {
 }
 
 # prepare build directory
-echo $PWD
 source_path="$PWD/.vimbundles"
-
-mkdir $source_path
+if [ ! -e $source_path ]; then
+  mkdir $source_path
+fi
 
 # create symlinks
 link $source_path "$HOME/.vimbundles"
