@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+function handle_existing {
+  target_path=$1
+  echo "Found existing $target_path"
+  select action in "Overwrite" "Stash" "Unlink"; do
+    case "$action" in
+      Overwrite)
+        remove $target_path; break;;
+      Stash)
+        stash $target_path; break;;
+      Unlink)
+        break;;
+      *)
+        echo "Invalid option"
+    esac
+  done
+}
+
+function remove {
+  rm -rf $1
+}
+
+function stash {
+  target_path=$1
+  if [ ! -e ".stash/$target_path" ]; then
+    mkdir -p ".stash/$target_path"
+  fi
+  mv {,.stash/}$target_path
+}
+
+function link {
+  source_path=$1
+  target_path=$2
+
+  if [ ! -e $target_path ]; then
+    echo "Linking $target_path to $source_path"
+    ln -si $source_path $target_path
+  else
+    handle_existing $target_path
+    trap `ln -si $source_path $target_path` SIGTERM
+  fi
+}
+

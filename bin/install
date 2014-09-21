@@ -1,25 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-function copy {
-  source_path=$1
-  target_path=$2
-  
-  if [ ! -e $target_path ]; then
-    echo "Copying $source_path to $target_path"
-    cp -r $source_path $target_path
-  else
-    echo "Overwrite $target_path? (y/n)\n"
-    read yn
-    if [ $yn = "y" ]; then
-      cp -r $source_path $target_path
-    fi
-  fi
-}
+source 'bin/lib/tools'
 
 dir=$PWD
 if [[ ! "$dir/bin/install" -ef "$0" ]]; then
-  echo "Please run 'bin/install' from dotmatrix root folder"
+  echo "Please run 'bin/install' from dotfiles root folder"
   exit 1
 fi
 
@@ -42,5 +28,8 @@ for dotfile in $files; do
 
   [ -e $source_path ] || continue
 
-  copy $source_path $target_path
+  link $source_path $target_path
 done
+
+# Install Vim Bundles
+sh "./bin/vimbundles.sh"
