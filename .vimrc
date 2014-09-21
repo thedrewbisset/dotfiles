@@ -35,6 +35,9 @@ noremap   <Right> <NOP>
 " show line numbers
 set number
 
+" use spaces and indent by two
+set expandtab tabstop=2 shiftwidth=2
+
 " git commit messages get 50/72 vertical bars
 autocmd BufNewFile,BufRead COMMIT_EDITMSG set colorcolumn=50,72
 
