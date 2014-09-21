@@ -6,15 +6,8 @@ endif
 syntax on
 filetype plugin indent on
 
-color codeschool
-set guifont=Monaco:h12
-set guioptions-=T guioptions-=e guioptions-=L guioptions-=r
+color drewdev
 set shell=bash
-
-augroup vimrc
-  autocmd!
-  autocmd GuiEnter * set columns=120 lines=70 number
-augroup END
 
 map <C-j> <C-W>j
 map <C-k> <C-W>k
