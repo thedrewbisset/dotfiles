@@ -12,8 +12,8 @@ fi
 # Ensure presence of directory for vim undo files
 undo_dir_path="Library/Vim/undo"
 if [ ! -d $HOME/$undo_dir_path ]; then
-  echo -n "Creating"
   mkdir -p $HOME/$undo_dir_path
+  echo "Vim undo path created at $HOME/$undo_dir_path"
 fi
 
 # Symlink dotfiles

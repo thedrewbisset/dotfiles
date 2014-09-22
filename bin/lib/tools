@@ -2,14 +2,14 @@
 function handle_existing {
   target_path=$1
   echo "Found existing $target_path"
-  select action in "Overwrite" "Stash" "Unlink"; do
+  select action in "Overwrite" "Stash" "Skip"; do
     case "$action" in
       Overwrite)
         remove $target_path; break;;
       Stash)
         stash $target_path; break;;
-      Unlink)
-        break;;
+      Skip)
+        return 1;;
       *)
         echo "Invalid option"
     esac
@@ -18,14 +18,22 @@ function handle_existing {
 
 function remove {
   rm -rf $1
+  echo "Removed $1"
 }
 
 function stash {
   target_path=$1
-  if [ ! -e ".stash/$target_path" ]; then
-    mkdir -p ".stash/$target_path"
+  dir=$PWD
+  stash=$dir/.stash$target_path
+  if [ ! -e $stash ]; then
+    mkdir -p $stash
   fi
-  mv {,.stash/}$target_path
+  if [ ! `mv $target_path $stash` ]; then
+    echo "Removing $target_path and preserving $stash"
+    remove $target_path
+  else
+    echo "Stashed $target_path"
+  fi
 }
 
 function link {
@@ -34,10 +42,14 @@ function link {
 
   if [ ! -e $target_path ]; then
     echo "Linking $target_path to $source_path"
-    ln -si $source_path $target_path
+    ln -s $source_path $target_path
   else
-    handle_existing $target_path
-    trap `ln -si $source_path $target_path` SIGTERM
+    if handle_existing $target_path; then
+      ln -s $source_path $target_path
+      printf "Symlinked $target_path \xE2\x9E\x94 $source_path\n"
+    else
+      echo "Skipping $target_path"
+    fi
   fi
 }
 
