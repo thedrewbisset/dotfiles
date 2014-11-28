@@ -3,6 +3,9 @@ EDITOR="$VISUAL"
 CLICOLOR=1
 export VISUAL EDITOR CLICOLOR
 
+# Run tmux with TERM set for osx
+alias tmux="TERM=screen-256color-bce tmux"
+
 # source chruby
 if [ -f '/usr/local/opt/chruby/share/chruby' ]; then
   source /usr/local/opt/chruby/share/chruby/chruby.sh
