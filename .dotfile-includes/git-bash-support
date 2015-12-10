@@ -48,31 +48,3 @@ git_prompt_info () {
     printf "${1-"(%s) "}" "${b##refs/heads/}$r$d"
   fi
 }
-
-gco () {
-  if [[ $1 == '.' ]]; then
-    git add -A
-    git commit -m "CHECKING OUT CURRENT DIRECTORY" -q
-    git reset HEAD^ -q
-    git checkout .
-  else
-    git checkout "$@"
-  fi
-}
-
-alias gap='git add -p'
-alias gnap='git add -N . && git add -p'
-alias gb='git branch'
-alias gc='git commit -v'
-alias gd='git diff --color-words'
-alias gdc='git diff --cached'
-alias gdh='git diff HEAD'
-alias gpl='git pull'
-alias glod='git log --graph --pretty="%Cgreen%h%Creset%Cblue%d%Creset %Cred%an%Creset: %s"'
-alias gps='git push'
-alias gpr='git pull --rebase'
-alias gst='git status'
-alias gr='git rebase'
-alias grc='git rebase --continue'
-alias gra='git rebase --abort'
-alias reset-authors='git commit --amend --reset-author -C HEAD'
