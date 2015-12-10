@@ -3,6 +3,13 @@ alias ll='ls -l'
 alias la='ls -a'
 alias lla='ls -la'
 
+# docker
+alias dc='docker-compose'
+alias dcu='dc-compose up'
+alias dcr='dc-compose run'
+alias dcp='dc-compose ps'
+alias db='docker build -t'
+
 # git
 alias gst='git status'
 alias gb='git branch'
