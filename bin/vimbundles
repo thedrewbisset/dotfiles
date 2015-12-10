@@ -33,6 +33,7 @@ get_bundle godlygeek tabular
 
 # Ruby
 get_bundle vim-ruby vim-ruby
+get_bundle kana vim-textobj-user # vim-textobj-rubyblock dependency
 get_bundle nelstrom vim-textobj-rubyblock
 get_bundle tpope vim-rails
 get_bundle tpope vim-cucumber
