@@ -1,4 +1,9 @@
-# git aliases
+# bash
+alias ll='ls -l'
+alias la='ls -a'
+alias lla='ls -la'
+
+# git
 alias gst='git status'
 alias gb='git branch'
 alias gba='git branch --all'
@@ -23,3 +28,8 @@ alias gri='git rebase --interactive'
 alias grc='git rebase --continue'
 alias gra='git rebase --abort'
 alias glo='git log --graph --pretty="%Cgreen%h%Cblue%d%Cred% aN%Creset% s"'
+
+# tmux
+alias tmn='tmux new -s'
+alias tml='tmux ls'
+alias tma='tmux attach -t'
