@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-function handle_existing {
+function handle_conflicting {
   target_path=$1
-  echo "Found existing $target_path"
-  select action in "Overwrite" "Stash" "Skip"; do
+  echo "Found conflicting file: '$target_path'"
+  select action in "Overwrite" "Skip"; do
     case "$action" in
       Overwrite)
         remove $target_path; break;;
-      Stash)
-        stash $target_path; break;;
       Skip)
         return 1;;
       *)
@@ -21,35 +19,20 @@ function remove {
   echo "Removed $1"
 }
 
-function stash {
-  target_path=$1
-  dir=$PWD
-  stash=$dir/.stash$target_path
-  if [ ! -e $stash ]; then
-    mkdir -p $stash
-  fi
-  if [ ! `mv $target_path $stash` ]; then
-    echo "Removing $target_path and preserving $stash"
-    remove $target_path
-  else
-    echo "Stashed $target_path"
-  fi
-}
-
 function link {
   source_path=$1
   target_path=$2
 
-  if [ ! -e $target_path ]; then
-    echo "Linking $target_path to $source_path"
-    ln -s $source_path $target_path
-  else
-    if handle_existing $target_path; then
+  if [ -e $target_path ] || [ -L $target_path ]; then
+    if handle_conflicting $target_path; then
       ln -s $source_path $target_path
       printf "Symlinked $target_path \xE2\x9E\x94 $source_path\n"
     else
       echo "Skipping $target_path"
     fi
+  else
+    echo "Linking $target_path to $source_path"
+    ln -s $source_path $target_path
   fi
 }
 
