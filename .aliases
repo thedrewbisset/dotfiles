@@ -4,6 +4,7 @@ alias la='ls -a'
 alias lla='ls -la'
 
 # docker
+alias dboot='bash --login "/Applications/Docker/Docker Quickstart Terminal.app/Contents/Resources/Scripts/start.sh"'
 alias dc='docker-compose'
 alias dcu='dc up'
 alias dcr='dc run'
