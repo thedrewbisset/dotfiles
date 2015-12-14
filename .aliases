@@ -13,6 +13,7 @@ alias dbld='docker build -t'
 
 # git
 alias g!='git init'
+alias g?='git show'
 alias gclo='git clone'
 alias gst='git status'
 alias gb='git branch'
