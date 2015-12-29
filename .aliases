@@ -59,6 +59,7 @@ alias gpl!='gpl --rebase'
 alias gr='git rebase'
 alias gri='gr --interactive'
 alias grc='gr --continue'
+alias grs='gr --skip'
 alias gra='gr --abort'
 alias glo='git log --graph --pretty="%Cgreen%h%Cblue%d%Cred% aN%Creset% s"'
 
