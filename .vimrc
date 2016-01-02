@@ -6,7 +6,11 @@ endif
 syntax on
 filetype plugin indent on
 
-color drewdev
+" Use solarized
+syntax enable
+set background=dark
+colorscheme solarized
+
 set shell=bash
 
 map <C-j> <C-W>j

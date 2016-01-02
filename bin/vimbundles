@@ -108,4 +108,7 @@ get_bundle scrooloose nerdtree
 # Status/tabline
 get_bundle bling vim-airline
 
+# Solarized
+get_bundle altercation vim-colors-solarized
+
 vim -c 'call pathogen#helptags()|q'
