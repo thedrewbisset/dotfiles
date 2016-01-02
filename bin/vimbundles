@@ -102,7 +102,7 @@ get_bundle goldfeld vim-seek
 # Fuzzy file finder
 get_bundle kien ctrlp.vim
 
-# Filesystem browser
+# Nerdtree
 get_bundle scrooloose nerdtree
 
 # Status/tabline
