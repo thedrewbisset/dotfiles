@@ -111,4 +111,10 @@ get_bundle bling vim-airline
 # Solarized
 get_bundle altercation vim-colors-solarized
 
+# Elixir
+get_bundle elixir-lang vim-elixir
+
+# Elm
+get_bundle lambdatoast elm.vim
+
 vim -c 'call pathogen#helptags()|q'
