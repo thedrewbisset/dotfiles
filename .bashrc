@@ -1,13 +1,10 @@
 VISUAL=vim
 EDITOR="$VISUAL"
-CLICOLOR=1
-export VISUAL EDITOR CLICOLOR
+TERM=xterm-256color
+export VISUAL EDITOR TERM
 
 # load aliases
 source "$HOME/.aliases"
-
-# Run tmux with TERM set for osx
-alias tmux="TERM=screen-256color-bce tmux"
 
 # source chruby
 if [ -f '/usr/local/opt/chruby/share/chruby' ]; then
