@@ -3,13 +3,8 @@ if exists('g:loaded_pathogen')
   execute pathogen#infect('~/.vimbundles/{}')
 endif
 
-syntax on
 filetype plugin indent on
 
-" Use solarized
-syntax enable
-set background=dark
-colorscheme solarized
 
 set shell=bash
 
