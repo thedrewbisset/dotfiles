@@ -1,0 +1,15 @@
+#! /usr/bin/env bash
+set -e
+
+if [ ! -d brew ]; then
+  echo "Homebrew not found"
+  echo "Installing..."
+  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+fi
+
+brew install tmux
+brew install vim
+
+brew cask install alfred
+brew cask install flux
+brew cask install spectacle

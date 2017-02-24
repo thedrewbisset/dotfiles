@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+source 'bin/lib/tools'
+
+# Set vim 8 base plugin path
+base_plugin_path="$PWD/.vim/pack/dotfiles"
+
+fetch_plugin() {
+  (
+  if [ -d "$2" ]; then
+    echo "Updating $1's $2"
+    cd "$2"
+    git pull --rebase
+  else
+    git clone "git://github.com/$1/$2.git"
+  fi
+  )
+}
+
+autoload() {
+  cd "$base_plugin_path/start"
+  fetch_plugin $1 $2
+}
+
+optload() {
+  cd "$base_plugin_path/opt"
+  fetch_plugin $1 $2
+}
+
+# Nerdtree
+autoload scrooloose nerdtree
+
+# Tab completion
+autoload ervandew supertab
+
+# Delimeter defined tabular alignment
+autoload godlygeek tabular
+
+## Ruby
+autoload vim-ruby vim-ruby
+
+# vim-textobj-rubyblock dependency
+autoload kana vim-textobj-user
+autoload nelstrom vim-textobj-rubyblock
+
+optload tpope vim-rails
+optload tpope vim-cucumber
+
+autoload tpope vim-bundler
+autoload tpope vim-rake
+autoload tpope vim-endwise
+autoload jgdavey vim-blockle
+autoload jgdavey vim-turbux
+
+## Tmux Support
+autoload tmux-plugins vim-tmux
+autoload christoomey vim-tmux-navigator
+
+## Git
+autoload tpope vim-fugitive
+autoload gregsexton gitv
+
+## JavaScript/CoffeeScript/Clientside
+optload kchmck vim-coffee-script
+optload leshill vim-json
+optload pangloss vim-javascript
+optload mustache vim-mustache-handlebars
+
+## Runtime file support
+autoload tpope vim-git
+autoload tpope vim-haml
+autoload tpope vim-markdown
+
+## Utils
+## Ack integration
+autoload mileszs ack.vim
+
+## Comment support
+autoload tpope vim-commentary
+
+## Plugin manager
+autoload tpope vim-pathogen
+
+## Readline key bindings
+autoload tpope vim-rsi
+
+## Default vimrc settings
+autoload tpope vim-sensible
+
+## Text manipulation
+autoload tpope vim-surround
+
+## Remove whitespace
+autoload rondale-sc vim-spacejam
+
+## Make/Dispatch compiler support
+autoload tpope vim-dispatch
+
+## Quickfix and Location list toggler
+autoload milkypostman vim-togglelist
+
+## Syntax support
+autoload scrooloose syntastic
+
+## Search command support
+autoload vim-scripts IndexedSearch
+
+## Seek navigation
+autoload goldfeld vim-seek
+
+## Fuzzy file finder
+autoload kien ctrlp.vim
+
+## Status/tabline
+autoload bling vim-airline
+
+## Solarized
+autoload altercation vim-colors-solarized
+
+## Elixir
+optload elixir-lang vim-elixir
+
+## Elm
+optload lambdatoast elm.vim

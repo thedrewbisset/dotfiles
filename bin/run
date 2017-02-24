@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -e
+
+source 'bin/lib/tools'
+
+dir=$PWD
+if [[ ! "$dir/bin/run" -ef "$0" ]]; then
+  echo "Please run 'bin/run' from dotfiles root folder"
+  exit 1
+fi
+
+# Install Vim Plugins
+source "bin/install/vim-plugins"
+
+# Build list of dotfiles and dotdirs
+dotdirs=".vim .dotfile-includes"
+
+dotfiles="$(find . -maxdepth 1 -name '.*' -type f | sed 's#^\./##' | grep -vF .gitignore)"
+
+sources="$dotfiles $dotdirs"
+
+# Symlink dots
+for dot in $sources; do
+  source_path="$dir/$dot"
+  target_path="$HOME/$dot"
+
+  [ -e $source_path ] || continue
+
+  link $source_path $target_path
+done
+

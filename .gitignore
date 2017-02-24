@@ -1,4 +1,5 @@
 *.swp
-.vimbundles
-.stash/*
-!.stash/.keep
+.vim/pack/dotfiles/start/*
+!.vim/pack/dotfiles/start/.keep
+.vim/pack/dotfiles/opt/*
+!.vim/pack/dotfiles/opt/.keep

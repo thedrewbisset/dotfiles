@@ -15,106 +15,106 @@ get_bundle() {
 }
 
 # prepare build directory
-source_path="$PWD/.vimbundles"
+source_path="$PWD/.vim/pack/drewdev/start"
 if [ ! -e $source_path ]; then
   mkdir $source_path
 fi
 
 # create symlinks
-link $source_path "$HOME/.vimbundles"
+link $source_path "$HOME/.vim/pack/drewdev/start"
 
 cd $source_path
 
-# Tab completion
-get_bundle ervandew supertab
-
-# Delimeter defined tabular alignment
-get_bundle godlygeek tabular
-
-# Ruby
-get_bundle vim-ruby vim-ruby
-get_bundle kana vim-textobj-user # vim-textobj-rubyblock dependency
-get_bundle nelstrom vim-textobj-rubyblock
-get_bundle tpope vim-rails
-get_bundle tpope vim-cucumber
-get_bundle tpope vim-bundler
-get_bundle tpope vim-rake
-get_bundle tpope vim-endwise
-get_bundle jgdavey vim-blockle
-get_bundle jgdavey vim-turbux
-
-# Tmux Support
-get_bundle tmux-plugins vim-tmux
-get_bundle christoomey vim-tmux-navigator
-
-# Git
-get_bundle tpope vim-fugitive
-get_bundle gregsexton gitv
-
-# JavaScript/CoffeeScript/Clientside
-get_bundle kchmck vim-coffee-script
-get_bundle leshill vim-json
-get_bundle pangloss vim-javascript
-get_bundle mustache vim-mustache-handlebars
-
-# Runtime file support
-get_bundle tpope vim-git
-get_bundle tpope vim-haml
-get_bundle tpope vim-markdown
-
-# Utils
-# Ack integration
-get_bundle mileszs ack.vim
-
-# Comment support
-get_bundle tpope vim-commentary
-
-# Plugin manager
-get_bundle tpope vim-pathogen
-
-# Readline key bindings
-get_bundle tpope vim-rsi
-
-# Default vimrc settings
-get_bundle tpope vim-sensible
-
-# Text manipulation
-get_bundle tpope vim-surround
-
-# Remove whitespace
-get_bundle rondale-sc vim-spacejam
-
-# Make/Dispatch compiler support
-get_bundle tpope vim-dispatch
-
-# Quickfix and Location list toggler
-get_bundle milkypostman vim-togglelist
-
-# Syntax support
-get_bundle scrooloose syntastic
-
-# Search command support
-get_bundle vim-scripts IndexedSearch
-
-# Seek navigation
-get_bundle goldfeld vim-seek
-
-# Fuzzy file finder
-get_bundle kien ctrlp.vim
+## Tab completion
+#get_bundle ervandew supertab
+#
+## Delimeter defined tabular alignment
+#get_bundle godlygeek tabular
+#
+## Ruby
+#get_bundle vim-ruby vim-ruby
+#get_bundle kana vim-textobj-user # vim-textobj-rubyblock dependency
+#get_bundle nelstrom vim-textobj-rubyblock
+#get_bundle tpope vim-rails
+#get_bundle tpope vim-cucumber
+#get_bundle tpope vim-bundler
+#get_bundle tpope vim-rake
+#get_bundle tpope vim-endwise
+#get_bundle jgdavey vim-blockle
+#get_bundle jgdavey vim-turbux
+#
+## Tmux Support
+#get_bundle tmux-plugins vim-tmux
+#get_bundle christoomey vim-tmux-navigator
+#
+## Git
+#get_bundle tpope vim-fugitive
+#get_bundle gregsexton gitv
+#
+## JavaScript/CoffeeScript/Clientside
+#get_bundle kchmck vim-coffee-script
+#get_bundle leshill vim-json
+#get_bundle pangloss vim-javascript
+#get_bundle mustache vim-mustache-handlebars
+#
+## Runtime file support
+#get_bundle tpope vim-git
+#get_bundle tpope vim-haml
+#get_bundle tpope vim-markdown
+#
+## Utils
+## Ack integration
+#get_bundle mileszs ack.vim
+#
+## Comment support
+#get_bundle tpope vim-commentary
+#
+## Plugin manager
+#get_bundle tpope vim-pathogen
+#
+## Readline key bindings
+#get_bundle tpope vim-rsi
+#
+## Default vimrc settings
+#get_bundle tpope vim-sensible
+#
+## Text manipulation
+#get_bundle tpope vim-surround
+#
+## Remove whitespace
+#get_bundle rondale-sc vim-spacejam
+#
+## Make/Dispatch compiler support
+#get_bundle tpope vim-dispatch
+#
+## Quickfix and Location list toggler
+#get_bundle milkypostman vim-togglelist
+#
+## Syntax support
+#get_bundle scrooloose syntastic
+#
+## Search command support
+#get_bundle vim-scripts IndexedSearch
+#
+## Seek navigation
+#get_bundle goldfeld vim-seek
+#
+## Fuzzy file finder
+#get_bundle kien ctrlp.vim
 
 # Nerdtree
 get_bundle scrooloose nerdtree
 
-# Status/tabline
-get_bundle bling vim-airline
-
-# Solarized
-get_bundle altercation vim-colors-solarized
-
-# Elixir
-get_bundle elixir-lang vim-elixir
-
-# Elm
-get_bundle lambdatoast elm.vim
-
-vim -c 'call pathogen#helptags()|q'
+## Status/tabline
+#get_bundle bling vim-airline
+#
+## Solarized
+#get_bundle altercation vim-colors-solarized
+#
+## Elixir
+#get_bundle elixir-lang vim-elixir
+#
+## Elm
+#get_bundle lambdatoast elm.vim
+#
+#vim -c 'call pathogen#helptags()|q'
