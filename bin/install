@@ -16,3 +16,4 @@ if [ ! -d $HOME/$undo_dir_path ]; then
 fi
 
 source 'bin/recipes/dotfiles'
+source 'bin/recipes/vim-plugins'

@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+source 'bin/lib/tools'
+
+# Set vim 8 base plugin path
+base_plugin_path="$PWD/source/.vim/pack/core"
+
+fetch_plugin() {
+  (
+  if [ -d "$2" ]; then
+    echo "Updating $1/$2"
+    cd "$2"
+    git pull --rebase
+  else
+    git clone "git://github.com/$1/$2.git"
+  fi
+  )
+}
+
+load() {
+  cd "$base_plugin_path/start"
+  fetch_plugin $1 $2
+}
+
+optload() {
+  cd "$base_plugin_path/opt"
+  fetch_plugin $1 $2
+}
+
+# Nerdtree
+load scrooloose nerdtree
+
+# Tab completion
+load ervandew supertab
+
+# Delimeter defined tabular alignment
+load godlygeek tabular
+
+## Ruby
+load vim-ruby vim-ruby
+
+# vim-textobj-rubyblock dependency
+load kana vim-textobj-user
+load nelstrom vim-textobj-rubyblock
+
+optload tpope vim-rails
+optload tpope vim-cucumber
+
+load tpope vim-bundler
+load tpope vim-rake
+load tpope vim-endwise
+load jgdavey vim-blockle
+load jgdavey vim-turbux
+
+## Tmux Support
+load tmux-plugins vim-tmux
+load christoomey vim-tmux-navigator
+
+## Git
+load tpope vim-fugitive
+load gregsexton gitv
+
+## JavaScript/CoffeeScript/Clientside
+optload kchmck vim-coffee-script
+optload leshill vim-json
+optload pangloss vim-javascript
+optload mustache vim-mustache-handlebars
+
+## Runtime file support
+load tpope vim-git
+load tpope vim-haml
+load tpope vim-markdown
+
+## Utils
+## Ack integration
+load mileszs ack.vim
+
+## Comment support
+load tpope vim-commentary
+
+## Plugin manager
+load tpope vim-pathogen
+
+## Readline key bindings
+load tpope vim-rsi
+
+## Default vimrc settings
+load tpope vim-sensible
+
+## Text manipulation
+load tpope vim-surround
+
+## Remove whitespace
+load rondale-sc vim-spacejam
+
+## Make/Dispatch compiler support
+load tpope vim-dispatch
+
+## Quickfix and Location list toggler
+load milkypostman vim-togglelist
+
+## Syntax support
+load scrooloose syntastic
+
+## Search command support
+load vim-scripts IndexedSearch
+
+## Seek navigation
+load goldfeld vim-seek
+
+## Fuzzy file finder
+load kien ctrlp.vim
+
+## Status/tabline
+load bling vim-airline
+
+## Solarized
+load altercation vim-colors-solarized
+
+## Elixir
+optload elixir-lang vim-elixir
+
+## Elm
+optload lambdatoast elm.vim

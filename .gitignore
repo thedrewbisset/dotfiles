@@ -1,1 +1,5 @@
 *.swp
+source/.vim/pack/core/start
+!source/.vim/pack/core/start/.keep
+source/.vim/pack/core/opt
+!source/.vim/pack/core/opt/.keep
