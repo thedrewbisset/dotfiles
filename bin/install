@@ -30,6 +30,3 @@ for dotfile in $files; do
 
   link $source_path $target_path
 done
-
-# Install Vim Bundles
-source "bin/vimbundles"
