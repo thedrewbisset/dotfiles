@@ -6,7 +6,7 @@ source 'bin/lib/tools'
 dir=$PWD
 
 # Symlink dotfiles
-dotfiles="$(cd source && find . -maxdepth 1 -name '.*' -type f | sed 's#^\./##')"
+dotfiles="$(ls -A source)"
 
 for dotfile in $dotfiles; do
   source_path="$dir/source/$dotfile"
@@ -14,5 +14,5 @@ for dotfile in $dotfiles; do
 
   [ -e $source_path ] || continue
 
-  link $source_path $target_path
+  set_link $source_path $target_path
 done

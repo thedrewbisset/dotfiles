@@ -19,7 +19,7 @@ function remove {
   echo "Removed $1"
 }
 
-function link {
+function set_link {
   source_path=$1
   target_path=$2
 
@@ -35,4 +35,3 @@ function link {
     ln -s $source_path $target_path
   fi
 }
-
