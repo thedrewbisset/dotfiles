@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -e
+
+source 'bin/lib/tools'
+
+dir=$PWD
+
+# Symlink dotfiles
+dotfiles="$(cd source && find . -maxdepth 1 -name '.*' -type f | sed 's#^\./##')"
+
+for dotfile in $dotfiles; do
+  source_path="$dir/source/$dotfile"
+  target_path="$HOME/$dotfile"
+
+  [ -e $source_path ] || continue
+
+  link $source_path $target_path
+done
