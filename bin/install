@@ -17,3 +17,4 @@ fi
 
 source 'bin/recipes/dotfiles'
 source 'bin/recipes/vim-plugins'
+source 'bin/recipes/homebrews'
