@@ -4,3 +4,49 @@
 
 [push]
   default = simple
+
+# All aliases are transformed by .bash/git-completion-with-alias-support.bash
+# to provide variants that can be called as `g<alias>` instead of `git <alias>`.
+# This allows aliases to use git-completion while still being tersely named.
+[alias]
+  sh = show
+  clo = clone
+  st = status
+  b = branch
+  bd = branch -d
+  bD = branch -D
+  ba = branch --all
+  bm = branch -m
+  co = checkout
+  cop = checkout --patch
+  d = diff
+  ds = diff --staged
+  a = add
+  ap = add --patch
+  mv = mv
+  rm = remove
+  cln = clean
+  clni = clean --interactive
+  sts = stash save
+  stsp = stash save --patch
+  stl = stash list
+  stsh = stash show --cc
+  stp = stash pop
+  sta = stash apply
+  std = stash drop
+  c = commit
+  cv = commit --verbose
+  cm = commit --message
+  ca = commit --amend
+  cav = commit --amend --verbose
+  m = merge
+  p = push
+  pf = push --force
+  pl = pull
+  plr = pull --rebase
+  r = rebase
+  ri = rebase --interactive
+  rc = rebase --continue
+  rs = rebase --skip
+  ra = rebase --abort
+  lo = log --graph --pretty="%Cgreen%h%Cblue%d%Cred%\\ aN%Creset%\\ s"
