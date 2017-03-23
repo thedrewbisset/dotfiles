@@ -1,0 +1,11 @@
+#! /usr/bin/env bash
+set -e
+
+if [ ! -d rbenv ]; then
+  echo "rbenv not found"
+  echo "Configuring..."
+  eval $(rbenv init -)
+fi
+
+rbenv install
+gem install bundler
