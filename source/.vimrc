@@ -1,10 +1,9 @@
-runtime! autoload/pathogen.vim
-if exists('g:loaded_pathogen')
-  execute pathogen#infect('~/.vimbundles/{}')
-endif
-
 filetype plugin indent on
 
+set undodir=$HOME/.vim/undo/
+set undofile
+set undolevels=1000
+set undoreload=10000
 
 set shell=bash
 
