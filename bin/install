@@ -7,13 +7,24 @@ if [[ ! "$PWD/bin/install" -ef "$0" ]]; then
   exit 1
 fi
 
-# Ensure presence of directory for vim undo files
-undo_dir_path="Library/Vim/undo"
-if [ ! -d $HOME/$undo_dir_path ]; then
-  mkdir -p $HOME/$undo_dir_path
-  echo "Vim undo path created at $HOME/$undo_dir_path"
+if [[ "$1" == "all" ]]; then
+  source 'bin/recipes/dotfiles'
+  source 'bin/recipes/vim-plugins'
+  source 'bin/recipes/homebrews'
+  source 'bin/recipes/rubies'
+else
+  case "$1" in
+    dotfiles)
+      source 'bin/recipes/dotfiles'
+      ;;
+    vim-plugins)
+      source 'bin/recipes/vim-plugins'
+      ;;
+    homebrews)
+      source 'bin/recipes/homebrews'
+      ;;
+    rubies)
+      source 'bin/recipes/rubies'
+      ;;
+  esac
 fi
-
-source 'bin/recipes/dotfiles'
-source 'bin/recipes/vim-plugins'
-source 'bin/recipes/homebrews'

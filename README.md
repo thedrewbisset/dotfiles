@@ -10,8 +10,21 @@ The vim-plugins recipe was designed to work with vim 8. If your system doesn't h
 
 # Setup
 
-To setup, run:
+You can install one or more recipes with
 
 ```bash
-$ bin/install
+# install all recipes
+$ bin/install all
+
+# install dotfiles only
+$ bin/install dotfiles
+
+# install vim-plugins only
+$ bin/install vim-plugins
+
+# install homebrews only
+$ bin/install homebrews
+
+# install rubies only
+$ bin/install rubies
 ```
