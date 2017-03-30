@@ -16,6 +16,7 @@ alias gcln!='git clean --force'
 alias gstd!='git stash clear'
 alias gca!='git commit --amend -CHEAD'
 alias gm!='git merge --no-ff'
+alias grst!='git reset --hard'
 
 # docker
 alias dboot='bash --login "/Applications/Docker/Docker Quickstart Terminal.app/Contents/Resources/Scripts/start.sh"'
