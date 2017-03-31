@@ -7,6 +7,9 @@ set undofile
 set undolevels=1000
 set undoreload=10000
 
+" Use shorter delay times
+set timeoutlen=1000 " mapping delay
+set ttimeoutlen=10  " key code delay
 set shell=bash
 
 map <C-j> <C-W>j
