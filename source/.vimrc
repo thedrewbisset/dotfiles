@@ -1,5 +1,7 @@
+" Load plugins based on detected filetype
 filetype plugin indent on
 
+" Use persistent undo
 set undodir=$HOME/.vim/undo/
 set undofile
 set undolevels=1000
