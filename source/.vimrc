@@ -4,12 +4,13 @@ filetype plugin indent on
 " Use persistent undo
 set undodir=$HOME/.vim/undo/
 set undofile
-set undolevels=1000
+set undolevels=10000
 set undoreload=10000
 
 " Use shorter delay times
+set timeout
 set timeoutlen=1000 " mapping delay
-set ttimeoutlen=10  " key code delay
+set ttimeoutlen=0  " key code delay
 set shell=bash
 
 """ Sensible configs
