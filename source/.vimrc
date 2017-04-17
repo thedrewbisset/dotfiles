@@ -97,6 +97,9 @@ let NERDTreeShowHidden=1
 map <Leader>n :NERDTreeToggle<CR>
 map <Leader>fnt :NERDTreeFind<CR>
 
+" Turbux test-via-tmux support
+let g:turbux_command_prefix = 'bundle exec'
+
 command! -nargs=0 -bar Qargs execute 'args' QuickfixFilenames()
 function! QuickfixFilenames()
   " Building a hash ensures we get each buffer only once
