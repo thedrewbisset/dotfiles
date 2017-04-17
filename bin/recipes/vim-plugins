@@ -38,17 +38,29 @@ load godlygeek tabular
 ## Ruby
 load vim-ruby vim-ruby
 
-# vim-textobj-rubyblock dependency
+# ruby block visual select: `var` (around), `vir` (inside)
 load kana vim-textobj-user
 load nelstrom vim-textobj-rubyblock
 
-optload tpope vim-rails
-optload tpope vim-cucumber
+# Rails project support
+load tpope vim-rails
 
+# Cucumber support: ctag mappings for cucumber steps
+load tpope vim-cucumber
+
+# Bundler support: :Bundle, :Bopen
 load tpope vim-bundler
+
+# Rails.vim commands for PORPs
 load tpope vim-rake
+
+# Wisely add corresponding 'end' for 'do'
 load tpope vim-endwise
+
+# Block syntax toggling <leader>b
 load jgdavey vim-blockle
+
+# Test runner support <leader>t | <leader> T
 load jgdavey vim-turbux
 
 ## Tmux Support
@@ -60,10 +72,10 @@ load tpope vim-fugitive
 load gregsexton gitv
 
 ## JavaScript/CoffeeScript/Clientside
-optload kchmck vim-coffee-script
+load kchmck vim-coffee-script
 optload leshill vim-json
 optload pangloss vim-javascript
-optload mustache vim-mustache-handlebars
+load mustache vim-mustache-handlebars
 
 ## Runtime file support
 load tpope vim-git
@@ -84,7 +96,7 @@ load tpope vim-pathogen
 load tpope vim-rsi
 
 ## Default vimrc settings
-load tpope vim-sensible
+optload tpope vim-sensible
 
 ## Text manipulation
 load tpope vim-surround

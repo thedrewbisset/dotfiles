@@ -1,11 +1,49 @@
+" Load plugins based on detected filetype
 filetype plugin indent on
 
+" Use persistent undo
 set undodir=$HOME/.vim/undo/
 set undofile
-set undolevels=1000
+set undolevels=10000
 set undoreload=10000
 
+" Use shorter delay times
+set timeout
+set timeoutlen=1000 " mapping delay
+set ttimeoutlen=0  " key code delay
 set shell=bash
+
+""" Sensible configs
+if has('autocmd')
+  filetype plugin indent on
+endif
+if has('syntax') && !exists('g:syntax_on')
+  syntax enable
+endif
+set autoindent
+set complete-=i
+set smarttab
+
+set nrformats-=octal
+
+set incsearch
+
+if maparg('<C-L>', 'n') ==# ''
+  nnoremap <silent> <C-L> :nohlsearch<C-R>=has('diff')?'<Bar>diffupdate':''<CR><CR><C-L>
+endif
+
+set laststatus=2
+set ruler
+set wildmenu
+
+set autoread
+
+" Allow color schemes to do bright colors without forcing bold.
+if &t_Co == 8 && $TERM !~# '^linux\|^Eterm'
+  set t_Co=16
+endif
+
+""" End sensible config
 
 map <C-j> <C-W>j
 map <C-k> <C-W>k
@@ -58,6 +96,9 @@ let NERDTreeIgnore=['\~$', 'tmp', '\.git', '\.bundle', '.DS_Store', 'tags', '.sw
 let NERDTreeShowHidden=1
 map <Leader>n :NERDTreeToggle<CR>
 map <Leader>fnt :NERDTreeFind<CR>
+
+" Turbux test-via-tmux support
+let g:turbux_command_prefix = 'bundle exec'
 
 command! -nargs=0 -bar Qargs execute 'args' QuickfixFilenames()
 function! QuickfixFilenames()
