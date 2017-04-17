@@ -96,7 +96,7 @@ load tpope vim-pathogen
 load tpope vim-rsi
 
 ## Default vimrc settings
-load tpope vim-sensible
+optload tpope vim-sensible
 
 ## Text manipulation
 load tpope vim-surround
