@@ -43,10 +43,10 @@ load kana vim-textobj-user
 load nelstrom vim-textobj-rubyblock
 
 # Rails project support
-optload tpope vim-rails
+load tpope vim-rails
 
 # Cucumber support: ctag mappings for cucumber steps
-optload tpope vim-cucumber
+load tpope vim-cucumber
 
 # Bundler support: :Bundle, :Bopen
 load tpope vim-bundler
@@ -72,10 +72,10 @@ load tpope vim-fugitive
 load gregsexton gitv
 
 ## JavaScript/CoffeeScript/Clientside
-optload kchmck vim-coffee-script
+load kchmck vim-coffee-script
 optload leshill vim-json
 optload pangloss vim-javascript
-optload mustache vim-mustache-handlebars
+load mustache vim-mustache-handlebars
 
 ## Runtime file support
 load tpope vim-git
