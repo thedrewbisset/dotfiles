@@ -38,17 +38,29 @@ load godlygeek tabular
 ## Ruby
 load vim-ruby vim-ruby
 
-# vim-textobj-rubyblock dependency
+# ruby block visual select: `var` (around), `vir` (inside)
 load kana vim-textobj-user
 load nelstrom vim-textobj-rubyblock
 
+# Rails project support
 optload tpope vim-rails
+
+# Cucumber support: ctag mappings for cucumber steps
 optload tpope vim-cucumber
 
+# Bundler support: :Bundle, :Bopen
 load tpope vim-bundler
+
+# Rails.vim commands for PORPs
 load tpope vim-rake
+
+# Wisely add corresponding 'end' for 'do'
 load tpope vim-endwise
+
+# Block syntax toggling <leader>b
 load jgdavey vim-blockle
+
+# Test runner support <leader>t | <leader> T
 load jgdavey vim-turbux
 
 ## Tmux Support
