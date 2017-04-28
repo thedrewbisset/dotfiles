@@ -42,6 +42,9 @@ load vim-ruby vim-ruby
 load kana vim-textobj-user
 load nelstrom vim-textobj-rubyblock
 
+# Projectionist support
+load tpope vim-projectionist
+
 # Rails project support
 load tpope vim-rails
 
@@ -124,6 +127,9 @@ load kien ctrlp.vim
 
 ## Status/tabline
 load bling vim-airline
+
+## BuffExplorer
+load jlanzarotta bufexplorer
 
 ## Solarized
 load altercation vim-colors-solarized
