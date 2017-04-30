@@ -8,23 +8,23 @@ if [[ ! "$PWD/bin/install" -ef "$0" ]]; then
 fi
 
 if [[ "$1" == "all" ]]; then
-  source 'bin/recipes/dotfiles'
-  source 'bin/recipes/vim-plugins'
-  source 'bin/recipes/homebrews'
-  source 'bin/recipes/rubies'
+  source "$PWD/recipes/dotfiles"
+  source "$PWD/recipes/vim-plugins"
+  source "$PWD/recipes/homebrews"
+  source "$PWD/recipes/rubies"
 else
   case "$1" in
     dotfiles)
-      source 'bin/recipes/dotfiles'
+      source "$PWD/recipes/dotfiles"
       ;;
     vim-plugins)
-      source 'bin/recipes/vim-plugins'
+      source "$PWD/recipes/vim-plugins"
       ;;
     homebrews)
-      source 'bin/recipes/homebrews'
+      source "$PWD/recipes/homebrews"
       ;;
     rubies)
-      source 'bin/recipes/rubies'
+      source "$PWD/recipes/rubies"
       ;;
   esac
 fi
