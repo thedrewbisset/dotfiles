@@ -135,7 +135,7 @@ load jlanzarotta bufexplorer
 load altercation vim-colors-solarized
 
 ## Elixir
-optload elixir-lang vim-elixir
+load elixir-lang vim-elixir
 
 ## Elm
 optload lambdatoast elm.vim
