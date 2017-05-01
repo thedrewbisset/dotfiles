@@ -2,7 +2,8 @@
 source 'bin/lib/tools'
 
 # Set vim 8 base plugin path
-base_plugin_path="$PWD/source/.vim/pack/core"
+stdload_path="$PWD/source/.vim/pack/core/start"
+optload_path="$PWD/source/.vim/pack/core/opt"
 
 fetch_plugin() {
   (
@@ -17,12 +18,18 @@ fetch_plugin() {
 }
 
 load() {
-  cd "$base_plugin_path/start"
+  if [ -d $optload_path/$2 ]; then
+    mv "$optload_path/$2" "$stdload_path/$2"
+  fi
+  cd $stdload_path
   fetch_plugin $1 $2
 }
 
 optload() {
-  cd "$base_plugin_path/opt"
+  if [ -d $stdload_path/$2 ]; then
+    mv "$stdload_path/$2" "$optload_path/$2"
+  fi
+  cd $optload_path
   fetch_plugin $1 $2
 }
 
