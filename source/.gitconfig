@@ -21,6 +21,7 @@
   cop = checkout --patch
   d = diff
   ds = diff --staged
+  df = diff --dirstat=files
   a = add
   ap = add --patch
   mv = mv
