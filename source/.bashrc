@@ -12,6 +12,9 @@ fi
 # source git completion alias support
 source "$HOME/.bash/git-completion-with-alias-support.bash"
 
+# source hub completion
+source "$HOME/.bash/hub.bash-completion.sh"
+
 # source git support for bash
 source "$HOME/.bash/git-prompt.bash"
 

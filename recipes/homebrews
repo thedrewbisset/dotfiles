@@ -19,6 +19,8 @@ brew install redis
 brew install rbenv
 brew install heroku
 
+brew install hub
+
 brew cask install alfred
 brew cask install flux
 brew cask install spectacle
