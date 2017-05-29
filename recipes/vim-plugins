@@ -67,6 +67,9 @@ load tpope vim-rake
 # Wisely add corresponding 'end' for 'do'
 load tpope vim-endwise
 
+# Unimpaired
+load tpope vim-unimpaired
+
 # Block syntax toggling <leader>b
 load jgdavey vim-blockle
 
@@ -84,7 +87,7 @@ load gregsexton gitv
 ## JavaScript/CoffeeScript/Clientside
 load kchmck vim-coffee-script
 optload leshill vim-json
-optload pangloss vim-javascript
+load pangloss vim-javascript
 load mustache vim-mustache-handlebars
 
 ## Runtime file support

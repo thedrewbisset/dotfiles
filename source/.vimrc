@@ -13,6 +13,9 @@ set timeoutlen=1000 " mapping delay
 set ttimeoutlen=0  " key code delay
 set shell=bash
 
+" Alias Y => y$ to mirror default D => d$
+nnoremap Y y$
+
 """ Sensible configs
 if has('autocmd')
   filetype plugin indent on
@@ -109,4 +112,18 @@ function! QuickfixFilenames()
     let buffer_numbers[quickfix_item['bufnr']] = bufname(quickfix_item['bufnr'])
   endfor
   return join(map(values(buffer_numbers), 'fnameescape(v:val)'))
+endfunction
+
+" Tabularize mapping for |
+inoremap <silent> <Bar>   <Bar><Esc>:call <SID>align()<CR>a
+
+function! s:align()
+  let p = '^\s*|\s.*\s|\s*$'
+  if exists(':Tabularize') && getline('.') =~# '^\s*|' && (getline(line('.')-1) =~# p || getline(line('.')+1) =~# p)
+    let column = strlen(substitute(getline('.')[0:col('.')],'[^|]','','g'))
+    let position = strlen(matchstr(getline('.')[0:col('.')],'.*|\s*\zs.*'))
+    Tabularize/|/l1
+    normal! 0
+    call search(repeat('[^|]*|',column).'\s\{-\}'.repeat('.',position),'ce',line('.'))
+  endif
 endfunction
