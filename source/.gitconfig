@@ -1,6 +1,8 @@
 [user]
 	email = andrew.bisset@gmail.com
 	name = Drew Bisset
+[core]
+  excludesfile = ~/.git-excludes-file
 
 [push]
   default = simple
@@ -40,6 +42,11 @@
   cm = commit --message
   ca = commit --amend
   cav = commit --amend --verbose
+  cp = cherry-pick
+  cpi = cherry-pick --interactive
+  cpc = cherry-pick --continue
+  cps = cherry-pick --skip
+  cpa = cherry-pick --abort
   m = merge
   p = push
   pf = push --force
