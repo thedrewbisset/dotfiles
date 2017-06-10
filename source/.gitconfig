@@ -27,7 +27,7 @@
   a = add
   ap = add --patch
   mv = mv
-  rm = remove
+  rm = rm
   cln = clean
   clni = clean --interactive
   sts = stash save
