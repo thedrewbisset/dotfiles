@@ -2,6 +2,7 @@
 source 'bin/lib/tools'
 
 # Set vim 8 base plugin path
+entrypoint=$PWD
 stdload_path="$PWD/source/.vim/pack/core/start"
 optload_path="$PWD/source/.vim/pack/core/opt"
 
@@ -149,3 +150,5 @@ load elixir-lang vim-elixir
 
 ## Elm
 optload lambdatoast elm.vim
+
+cd $entrypoint
