@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+
+if [ ! $(command -v nix) ]; then
+  echo "Nix not found"
+  echo "Installing..."
+  curl https://nixos.org/nix/install | sh
+fi
