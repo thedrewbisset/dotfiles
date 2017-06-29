@@ -9,6 +9,9 @@ if [ -f '/usr/local/opt/chruby/share/chruby' ]; then
   source /usr/local/opt/chruby/share/chruby/auto.sh
 fi
 
+# source history support
+source "$HOME/.bash/history-support.bash"
+
 # source git completion alias support
 source "$HOME/.bash/git-completion-with-alias-support.bash"
 
