@@ -117,6 +117,9 @@ endfunction
 " Tabularize mapping for |
 inoremap <silent> <Bar>   <Bar><Esc>:call <SID>align()<CR>a
 
+" Load vim matchit for extended support of `%`
+runtime macros/matchit.vim
+
 function! s:align()
   let p = '^\s*|\s.*\s|\s*$'
   if exists(':Tabularize') && getline('.') =~# '^\s*|' && (getline(line('.')-1) =~# p || getline(line('.')+1) =~# p)
