@@ -48,6 +48,7 @@
   cps = cherry-pick --skip
   cpa = cherry-pick --abort
   m = merge
+  mnf = merge --no-ff
   p = push
   psu = push --set-upstream
   pfl = push --force-with-lease
