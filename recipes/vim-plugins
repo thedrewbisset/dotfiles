@@ -46,6 +46,9 @@ load godlygeek tabular
 ## Ruby
 load vim-ruby vim-ruby
 
+## Python
+load vim-scripts python.vim
+
 # ruby block visual select: `var` (around), `vir` (inside)
 load kana vim-textobj-user
 load nelstrom vim-textobj-rubyblock
