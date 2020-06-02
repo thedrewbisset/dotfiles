@@ -1,4 +1,6 @@
 *.swp
+!source/.bats/.keep
+source/.bats/*
 source/.vim/pack/core/start
 !source/.vim/pack/core/start/.keep
 source/.vim/pack/core/opt

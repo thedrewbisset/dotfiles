@@ -8,7 +8,7 @@ eval "$(hub alias -s)"
 export PATH="/usr/local/opt/sqlite/bin:$PATH"
 
 # Use bats
-export PATH="~/dev/bats/bin:$PATH"
+export PATH="~/.bats/src/bin:$PATH"
 
 # Use brew's python3
 export PATH="/usr/local/opt/python/libexec/bin:$PATH"
