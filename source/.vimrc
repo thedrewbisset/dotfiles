@@ -130,6 +130,9 @@ inoremap <silent> <Bar>   <Bar><Esc>:call <SID>align()<CR>a
 " Load vim matchit for extended support of `%`
 runtime macros/matchit.vim
 
+" Use fzf for keybindings and fuzzy completion
+set rtp+=/usr/local/opt/fzf
+
 function! s:align()
   let p = '^\s*|\s.*\s|\s*$'
   if exists(':Tabularize') && getline('.') =~# '^\s*|' && (getline(line('.')-1) =~# p || getline(line('.')+1) =~# p)
