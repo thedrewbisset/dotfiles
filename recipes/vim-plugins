@@ -148,6 +148,9 @@ load jlanzarotta bufexplorer
 ## Solarized
 load altercation vim-colors-solarized
 
+## Auto Format
+load chiel92 vim-autoformat
+
 ## Elixir
 load elixir-lang vim-elixir
 
