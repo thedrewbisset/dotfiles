@@ -1,0 +1,3 @@
+[submodule "source/.oh-my-zsh"]
+	path = source/.oh-my-zsh
+	url = https://github.com/ohmyzsh/ohmyzsh.git
