@@ -8,7 +8,6 @@ alias lla='ls -la'
 # Setting them here as they don't need to play nicely with git autocomplete.
 # All other git aliases are defined in the .gitconfig
 alias g!='git init'
-alias g?='git help'
 alias gco!='git checkout -b'
 alias gal='git add --all'
 alias gap!='git add --intent-to-add . && git add --patch'
