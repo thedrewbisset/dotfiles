@@ -23,6 +23,7 @@ sip vim
 sip wget
 sip ack
 sip ctags
+sip zellij
 
 # Install ruby dependencies
 sip postgres
