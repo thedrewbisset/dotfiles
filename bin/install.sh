@@ -2,10 +2,10 @@
 set -e
 
 # Make sure bin/install is being run from project root
-if [[ ! "$PWD/bin/install" -ef "$0" ]]; then
-  echo "Please run 'bin/install' from dotfiles root"
-  exit 1
-fi
+# if [[ ! "$PWD/bin/install" -ef "$0" ]]; then
+#   echo "Please run 'bin/install' from dotfiles root"
+#   exit 1
+# fi
 
 if [[ "$1" == "all" ]]; then
   source "$PWD/recipes/dotfiles"
