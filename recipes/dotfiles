@@ -6,7 +6,7 @@ source 'bin/lib/tools'
 dir=$PWD
 
 # Symlink dotfiles
-dotfiles="$(ls -A source)"
+dotfiles="$(ls -Ap source | grep -v deprecated)"
 
 for dotfile in $dotfiles; do
   source_path="$dir/source/$dotfile"
