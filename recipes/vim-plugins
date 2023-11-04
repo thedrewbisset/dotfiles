@@ -13,7 +13,7 @@ fetch_plugin() {
     cd "$2"
     git pull --rebase
   else
-    git clone "git://github.com/$1/$2.git"
+    git clone "git@github.com:$1/$2"
   fi
   )
 }
