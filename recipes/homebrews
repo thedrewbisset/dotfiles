@@ -24,6 +24,7 @@ sip wget
 sip ack
 sip ctags
 sip zellij
+sip gnupg
 
 # Install ruby dependencies
 sip postgres
