@@ -93,7 +93,9 @@ source $ZSH/oh-my-zsh.sh
 # Load aliases
 source $HOME/.aliases
 
+# Homebrew path resolvers
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
 eval "$(rbenv init - zsh)"
 

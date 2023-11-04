@@ -27,7 +27,7 @@ sip zellij
 sip gnupg
 
 # Install ruby dependencies
-sip postgres
+sip postgresql@16
 sip redis
 sip rbenv
 sip heroku
