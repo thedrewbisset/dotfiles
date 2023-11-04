@@ -89,3 +89,9 @@ source $ZSH/oh-my-zsh.sh
 
 # Load aliases
 source $HOME/.aliases
+
+export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+
+eval "$(rbenv init - zsh)"
+
+export GPG_TTY=$(tty)
