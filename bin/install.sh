@@ -8,12 +8,16 @@ set -e
 # fi
 
 if [[ "$1" == "all" ]]; then
+  source "$PWD/recipes/oh-my-zsh"
   source "$PWD/recipes/dotfiles"
   source "$PWD/recipes/vim-plugins"
   source "$PWD/recipes/homebrews"
   source "$PWD/recipes/rubies"
 else
   case "$1" in
+    zsh)
+      source "$PWD/recipes/oh-my-zsh"
+      ;;
     dotfiles)
       source "$PWD/recipes/dotfiles"
       ;;
