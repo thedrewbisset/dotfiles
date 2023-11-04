@@ -8,7 +8,7 @@ sip() {
 }
 
 sip_cask() {
- brew cask install $1 || :
+ brew install --cask $1 || :
 }
 
 
