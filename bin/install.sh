@@ -12,6 +12,7 @@ if [[ "$1" == "all" ]]; then
   source "$PWD/recipes/dotfiles"
   source "$PWD/recipes/vim-plugins"
   source "$PWD/recipes/homebrews"
+  source "$PWD/recipes/kiex"
   source "$PWD/recipes/rubies"
 else
   case "$1" in
@@ -26,6 +27,9 @@ else
       ;;
     homebrews)
       source "$PWD/recipes/homebrews"
+      ;;
+    kiex)
+      source "$PWD/recipes/kiex"
       ;;
     rubies)
       source "$PWD/recipes/rubies"

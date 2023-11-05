@@ -100,3 +100,6 @@ export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 eval "$(rbenv init - zsh)"
 
 export GPG_TTY=$(tty)
+
+# Load Kiex Elixir version manager
+test -s "$HOME/.kiex/scripts/kiex" && source "$HOME/.kiex/scripts/kiex"

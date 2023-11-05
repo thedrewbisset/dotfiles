@@ -32,6 +32,8 @@ sip redis
 sip rbenv
 sip heroku
 
+sip erlang
+
 sip hub
 
 sip_cask alfred
