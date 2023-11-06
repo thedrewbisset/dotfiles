@@ -60,7 +60,7 @@ COMPLETION_WAITING_DOTS="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(ag aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode)
+plugins=(ag aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode asdf)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -97,9 +97,7 @@ source $HOME/.aliases
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
-eval "$(rbenv init - zsh)"
-
 export GPG_TTY=$(tty)
 
-# Load Kiex Elixir version manager
-test -s "$HOME/.kiex/scripts/kiex" && source "$HOME/.kiex/scripts/kiex"
+# Load asdf
+. /opt/homebrew/opt/asdf/libexec/asdf.sh

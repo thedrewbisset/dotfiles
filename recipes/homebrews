@@ -25,16 +25,19 @@ sip ack
 sip ctags
 sip zellij
 sip gnupg
+sip gawk
 
-# Install ruby dependencies
 sip postgresql@16
 sip redis
-sip rbenv
+
 sip heroku
 
 sip erlang
 
 sip hub
+
+sip coreutils
+sip asdf
 
 sip_cask alfred
 sip_cask flux
