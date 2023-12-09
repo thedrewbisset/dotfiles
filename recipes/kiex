@@ -1,0 +1,4 @@
+#! /usr/bin/env bash
+set -e
+
+curl -sSL https://raw.githubusercontent.com/taylor/kiex/master/install | bash -s

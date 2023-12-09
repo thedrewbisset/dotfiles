@@ -27,6 +27,8 @@ sip zellij
 sip gnupg
 sip gawk
 
+sip rbenv
+sip ruby-build
 sip postgresql@16
 sip redis
 
@@ -37,7 +39,6 @@ sip erlang
 sip hub
 
 sip coreutils
-sip asdf
 
 sip_cask alfred
 sip_cask flux
