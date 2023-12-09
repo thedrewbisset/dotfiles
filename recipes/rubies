@@ -7,4 +7,6 @@ if [ ! $(command -v rbenv) ]; then
   eval $(rbenv init -)
 fi
 
+rbenv init
+rbenv install
 gem install bundler
