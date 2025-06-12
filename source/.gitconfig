@@ -4,8 +4,14 @@
 [core]
   excludesfile = ~/.git-excludes-file
 
+[init]
+  defaultBranch = main
+
 [push]
   default = simple
+
+[pull]
+  rebase = false
 
 # All aliases are transformed by .bash/git-completion-with-alias-support.bash
 # to provide variants that can be called as `g<alias>` instead of `git <alias>`.
