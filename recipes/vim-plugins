@@ -90,7 +90,6 @@ load gregsexton gitv
 
 ## JavaScript/CoffeeScript/Clientside
 load kchmck vim-coffee-script
-optload leshill vim-json
 load pangloss vim-javascript
 load mustache vim-mustache-handlebars
 
@@ -128,10 +127,8 @@ load tpope vim-dispatch
 load milkypostman vim-togglelist
 
 ## Syntax support
-load scrooloose syntastic
+load dense-analysis ale
 
-## Search command support
-load vim-scripts IndexedSearch
 
 ## Seek navigation
 load goldfeld vim-seek

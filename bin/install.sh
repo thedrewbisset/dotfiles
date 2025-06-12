@@ -14,6 +14,9 @@ if [[ "$1" == "all" ]]; then
   source "$PWD/recipes/homebrews"
   source "$PWD/recipes/kiex"
   source "$PWD/recipes/rubies"
+  source "$PWD/recipes/python"
+  source "$PWD/recipes/npm"
+  source "$PWD/recipes/bats"
 else
   case "$1" in
     zsh)
@@ -33,6 +36,15 @@ else
       ;;
     rubies)
       source "$PWD/recipes/rubies"
+      ;;
+    python)
+      source "$PWD/recipes/python"
+      ;;
+    npm)
+      source "$PWD/recipes/npm"
+      ;;
+    bats)
+      source "$PWD/recipes/bats"
       ;;
   esac
 fi

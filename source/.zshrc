@@ -60,7 +60,7 @@ COMPLETION_WAITING_DOTS="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(ag aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode asdf)
+plugins=(ag aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode macos fzf)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -97,10 +97,13 @@ source $HOME/.aliases
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
+# NPM global packages
+export PATH="$HOME/.npm-global/bin:$PATH"
+
 export GPG_TTY=$(tty)
 
-# Load asdf
-. /opt/homebrew/opt/asdf/libexec/asdf.sh
+eval "$(rbenv init - zsh)"
+test -s "$HOME/.kiex/scripts/kiex" && source "$HOME/.kiex/scripts/kiex"
 
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
@@ -116,4 +119,3 @@ else
 fi
 unset __conda_setup
 # <<< conda initialize <<<
-

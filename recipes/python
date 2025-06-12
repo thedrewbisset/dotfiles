@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -e
+
+# Configuration
+PYTHON_VERSION="3.11"
+
+# Install miniconda if not already present
+source "$PWD/recipes/miniconda"
+
+# Initialize conda for this session if not already done
+if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+  source "$HOME/miniconda3/etc/profile.d/conda.sh"
+  conda activate base
+fi
+
+echo "Setting up Python development environments..."
+
+# Create base-dev environment with common development tools
+if ! conda env list | grep -q "base-dev"; then
+  echo "Creating base-dev environment..."
+  conda create -n base-dev python=$PYTHON_VERSION -y
+  conda activate base-dev
+  pip install black flake8 pytest pip-tools ipython
+  echo "base-dev environment created with development tools"
+else
+  echo "base-dev environment already exists"
+fi
+
+# Create base-ml environment for machine learning work
+if ! conda env list | grep -q "base-ml"; then
+  echo "Creating base-ml environment..."
+  conda create -n base-ml python=$PYTHON_VERSION -y
+  conda activate base-ml
+  conda install pytorch torchvision torchaudio -c pytorch -y
+  pip install transformers jupyter notebook pandas numpy matplotlib seaborn scikit-learn
+  echo "base-ml environment created with ML tools"
+else
+  echo "base-ml environment already exists"
+fi
+
+echo "Python environments setup complete!"
+echo "Available environments:"
+conda env list

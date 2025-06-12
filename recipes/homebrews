@@ -15,7 +15,7 @@ sip_cask() {
 if [ ! $(command -v brew) ]; then
   echo "Homebrew not found"
   echo "Installing..."
-  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install)"
 fi
 
 sip tmux
@@ -41,5 +41,4 @@ sip hub
 sip coreutils
 
 sip_cask alfred
-sip_cask flux
 sip_cask rectangle

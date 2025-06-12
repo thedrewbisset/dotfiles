@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Setting up NPM global packages..."
+
+# Configure NPM to use user-writable global directory
+npm config set prefix ~/.npm-global
+
+# Create the directory if it doesn't exist
+mkdir -p ~/.npm-global/bin
+
+# Install useful global packages
+if ! command -v claude-code &> /dev/null; then
+  echo "Installing Claude Code CLI..."
+  npm install -g @anthropic-ai/claude-code
+else
+  echo "Claude Code CLI already installed"
+fi
+
+echo "NPM global setup complete!"
+echo "Remember to reload your shell or run: source ~/.zshrc"
