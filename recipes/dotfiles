@@ -14,5 +14,19 @@ for dotfile in $dotfiles; do
 
   [ -e $source_path ] || continue
 
-  set_link $source_path $target_path
+  # Special handling for SSH directory
+  if [[ "$dotfile" == ".ssh" ]]; then
+    # Create SSH directory with correct permissions
+    mkdir -p "$target_path"
+    chmod 700 "$target_path"
+    
+    # Only symlink config file, skip if private keys exist
+    if [[ ! -f "$target_path/config" ]] || [[ -L "$target_path/config" ]]; then
+      set_link "$source_path/config" "$target_path/config"
+    else
+      echo "SSH config already exists, skipping to preserve existing setup"
+    fi
+  else
+    set_link $source_path $target_path
+  fi
 done
