@@ -60,7 +60,7 @@ COMPLETION_WAITING_DOTS="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(ag aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode)
+plugins=(ag aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode macos fzf)
 
 source $ZSH/oh-my-zsh.sh
 
