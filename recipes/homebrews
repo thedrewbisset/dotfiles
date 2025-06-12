@@ -41,5 +41,4 @@ sip hub
 sip coreutils
 
 sip_cask alfred
-sip_cask flux
 sip_cask rectangle
