@@ -97,6 +97,9 @@ source $HOME/.aliases
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
+# NPM global packages
+export PATH="$HOME/.npm-global/bin:$PATH"
+
 export GPG_TTY=$(tty)
 
 eval "$(rbenv init - zsh)"
