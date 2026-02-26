@@ -119,6 +119,9 @@ else
 fi
 unset __conda_setup
 # <<< conda initialize <<<
+
+alias claude="/Users/drew/.claude/local/claude"
+
 # Colima support
 export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
 export TESTCONTAINERS_RYUK_DISABLED=true
@@ -140,4 +143,26 @@ colima-init() {
 
     echo "Colima initialized successfully"
     colima status
+}
+
+# Claude code functions
+# Claude Code - Max subscription (personal/hobby)
+claude-lge() {
+  unset CLAUDE_CODE_USE_BEDROCK
+  unset AWS_REGION
+  unset ANTHROPIC_MODEL
+  unset ANTHROPIC_SMALL_FAST_MODEL
+  echo "✅ Claude Code → Anthropic Max (personal)"
+  claude "$@"
+}
+
+# Claude Code - AWS Bedrock (ChartPro / professional)
+claude-chartpro() {
+  export CLAUDE_CODE_USE_BEDROCK=1
+  export AWS_REGION=us-west-2
+  export AWS_PROFILE=bedrock
+  export ANTHROPIC_MODEL='us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+  export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
+  echo "✅ Claude Code → AWS Bedrock (work)"
+  claude "$@"
 }

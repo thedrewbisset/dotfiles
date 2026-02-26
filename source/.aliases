@@ -32,3 +32,7 @@ alias docker-size='docker system df'
 alias tmn='tmux new -s'
 alias tml='tmux ls'
 alias tma='tmux attach -t'
+
+# claude code
+alias claude='claude'
+alias claude-bedrock='CLAUDE_CODE_USE_BEDROCK=1 claude'
