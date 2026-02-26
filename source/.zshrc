@@ -119,3 +119,25 @@ else
 fi
 unset __conda_setup
 # <<< conda initialize <<<
+# Colima support
+export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
+export TESTCONTAINERS_RYUK_DISABLED=true
+
+# Recreate Colima with standard settings for M2 Mac
+colima-init() {
+    echo "Initializing Colima with default configuration..."
+    colima delete --force 2>/dev/null || true  # Delete existing if present
+    colima start \
+        --cpu 4 \
+        --memory 8 \
+        --disk 100 \
+        --vm-type vz \
+        --mount /private:w
+        --mount-type virtiofs \
+        --arch aarch64 \
+        --network-address
+        # --vz-rosetta # option for improved amd platform compatibility
+
+    echo "Colima initialized successfully"
+    colima status
+}

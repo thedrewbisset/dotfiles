@@ -17,13 +17,16 @@ alias gca!='git commit --amend -CHEAD'
 alias gm!='git merge --no-ff'
 alias grst!='git reset --hard'
 
-# docker
-alias dboot='bash --login "/Applications/Docker/Docker Quickstart Terminal.app/Contents/Resources/Scripts/start.sh"'
-alias dc='docker-compose'
-alias dcu='dc up'
-alias dcr='dc run'
-alias dcp='dc ps'
-alias dbld='docker build -t'
+# colima
+alias cl-start='colima start'
+alias cl-stop='colima stop'
+alias cl-status='colima status'
+alias cl-restart='colima stop && colima start'
+alias cl-reset='colima delete && colima start'
+
+# docker cleanup
+alias docker-cleanup='docker system prune -af --volumes'
+alias docker-size='docker system df'
 
 # tmux
 alias tmn='tmux new -s'
