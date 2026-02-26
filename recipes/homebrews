@@ -18,27 +18,37 @@ if [ ! $(command -v brew) ]; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install)"
 fi
 
+sip awscli
+sip colima
+sip coreutils
+sip ctags
+sip docker
+sip docker-compose
+sip erlang
+sip fzf
+sip gawk
+sip gcc
+sip gh
+sip git
+sip gnupg
+sip graphviz
+sip httrack
+sip hub
+sip hugo
+sip ios-deploy
+sip jq
+sip llvm
+sip postgresql@16
+sip python@3.12
+sip rbenv
+sip redis
+sip ripgrep
+sip ruby-build
 sip tmux
 sip vim
 sip wget
-sip ack
-sip ctags
+sip yt-dlp
 sip zellij
-sip gnupg
-sip gawk
-
-sip rbenv
-sip ruby-build
-sip postgresql@16
-sip redis
-
-sip heroku
-
-sip erlang
-
-sip hub
-
-sip coreutils
 
 sip_cask alfred
 sip_cask rectangle
