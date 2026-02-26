@@ -3,6 +3,7 @@
 	name = thedrewbisset
 [core]
   excludesfile = ~/.git-excludes-file
+  sshCommand = ssh -i ~/.ssh/github.com-tdb -o IdentitiesOnly=yes
 
 [init]
   defaultBranch = main
@@ -66,3 +67,9 @@
   rs = rebase --skip
   ra = rebase --abort
   lo = log --graph --pretty="%Cgreen%h%Cblue%d%Cred%\\ aN%Creset%\\ s"
+
+[includeIf "gitdir:~/dev/projects/lge/"]
+  path = ~/.gitconfig-lge
+
+[includeIf "gitdir:~/dev/projects/chartpro/"]
+  path = ~/.gitconfig-chartpro
