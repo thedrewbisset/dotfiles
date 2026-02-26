@@ -9,6 +9,7 @@ dir=$PWD
 dotfiles="$(ls -Ap source | grep -v deprecated)"
 
 for dotfile in $dotfiles; do
+  dotfile="${dotfile%/}"
   source_path="$dir/source/$dotfile"
   target_path="$HOME/$dotfile"
 
@@ -16,9 +17,11 @@ for dotfile in $dotfiles; do
 
   # Special handling for SSH directory
   if [[ "$dotfile" == ".ssh" ]]; then
-    # Create SSH directory with correct permissions
-    mkdir -p "$target_path"
-    chmod 700 "$target_path"
+    # Create SSH directory with correct permissions only if it doesn't exist
+    if [[ ! -d "$target_path" ]]; then
+      mkdir -p "$target_path"
+      chmod 700 "$target_path"
+    fi
     
     # Only symlink config file, skip if private keys exist
     if [[ ! -f "$target_path/config" ]] || [[ -L "$target_path/config" ]]; then
