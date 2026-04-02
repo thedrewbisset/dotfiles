@@ -123,7 +123,6 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-alias claude="/Users/drew/.claude/local/claude"
 
 # Android Support
 export ANDROID_HOME=$HOME/Library/Android/sdk
