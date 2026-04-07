@@ -175,3 +175,7 @@ claude-chartpro() {
   echo "✅ Claude Code → AWS Bedrock (work)"
   claude "$@"
 }
+
+# Claude Code backup/restore
+alias cb='claude-backup'
+alias cr='claude-restore'

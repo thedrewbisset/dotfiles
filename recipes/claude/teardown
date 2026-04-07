@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+dir=$PWD
+claude_target="${TARGET_HOME:-$HOME}/.claude"
+
+echo "Tearing down Claude Code config symlinks from $claude_target..."
+
+for config_file in CLAUDE.md settings.json; do
+  target_path="$claude_target/$config_file"
+  if [ -L "$target_path" ]; then
+    rm "$target_path"
+    echo "Removed symlink: $target_path"
+  fi
+done
+
+for skill_dir in "$dir/source/.claude/skills"/*/; do
+  skill_name=$(basename "$skill_dir")
+  target_path="$claude_target/skills/$skill_name"
+  if [ -L "$target_path" ]; then
+    rm "$target_path"
+    echo "Removed symlink: $target_path"
+  fi
+done
+
+for plugin_file in config.json installed_plugins.json blocklist.json known_marketplaces.json; do
+  target_path="$claude_target/plugins/$plugin_file"
+  if [ -L "$target_path" ]; then
+    rm "$target_path"
+    echo "Removed symlink: $target_path"
+  fi
+done
