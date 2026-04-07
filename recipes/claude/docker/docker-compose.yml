@@ -1,0 +1,45 @@
+services:
+  base:
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile
+    image: claude-base:latest
+    volumes:
+      - ${WORKTREE_PATH}:/workspace
+      - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      - ${HOME}/.claude/skills:/home/dev/.claude/skills:ro
+    environment:
+      - AWS_BEARER_TOKEN_BEDROCK
+    stdin_open: true
+    tty: true
+
+  python:
+    build:
+      context: ..
+      dockerfile: docker/python/Dockerfile
+    image: claude-python:latest
+    volumes:
+      - ${WORKTREE_PATH}:/workspace
+      - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      - ${HOME}/.claude/skills:/home/dev/.claude/skills:ro
+    environment:
+      - AWS_BEARER_TOKEN_BEDROCK
+    stdin_open: true
+    tty: true
+
+  node:
+    build:
+      context: ..
+      dockerfile: docker/node/Dockerfile
+    image: claude-node:latest
+    volumes:
+      - ${WORKTREE_PATH}:/workspace
+      - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      - ${HOME}/.claude/skills:/home/dev/.claude/skills:ro
+    environment:
+      - AWS_BEARER_TOKEN_BEDROCK
+    stdin_open: true
+    tty: true

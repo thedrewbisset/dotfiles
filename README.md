@@ -151,6 +151,61 @@ Shell aliases (available after installing dotfiles):
 
 ---
 
+## Containerized Claude Code (C3)
+
+Run Claude Code in an ephemeral Docker container against an isolated git worktree. Useful for sandboxed sessions that don't touch your working tree.
+
+Infrastructure lives in `recipes/claude/docker/`:
+
+```
+recipes/claude/docker/
+├── base/Dockerfile     # Ubuntu 24.04 + Node LTS + Claude Code CLI
+├── python/Dockerfile   # Extends base + Python 3.12 + Poetry
+├── node/Dockerfile     # Extends base + Yarn
+├── docker-compose.yml  # Service definitions
+└── .env.example        # Template for local secrets (never committed)
+```
+
+### Quick start
+
+```bash
+bin/claude-worktree <repo-path> [platform] [branch-name]
+```
+
+```bash
+# Start a base session against a repo
+bin/claude-worktree ~/dev/projects/my-app
+
+# Start a Python session with a specific branch name
+bin/claude-worktree ~/dev/projects/my-app python fix/dependency-updates
+```
+
+The script:
+1. Creates a git worktree at `<repo>/.worktrees/<branch>`
+2. Launches the container with the worktree mounted at `/workspace`
+3. Mounts `~/.claude/` config read-only into the container
+4. Passes `AWS_BEARER_TOKEN_BEDROCK` from your host environment (never baked into the image)
+5. On exit, prompts whether to remove the worktree
+
+### Authentication
+
+The bearer token is passed at runtime via environment variable — it is never stored in the image or committed to the repo:
+
+```bash
+export AWS_BEARER_TOKEN_BEDROCK="<your-token>"
+bin/claude-worktree ~/dev/projects/my-app
+```
+
+### Building images manually
+
+```bash
+docker build -t claude-base -f recipes/claude/docker/base/Dockerfile .
+docker build -t claude-python -f recipes/claude/docker/python/Dockerfile .
+docker build -t claude-node -f recipes/claude/docker/node/Dockerfile .
+```
+
+---
+
 ## SSH key setup
 
 After running the dotfiles recipe, generate SSH keys for each GitHub profile:
