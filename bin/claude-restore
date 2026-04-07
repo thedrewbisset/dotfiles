@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -e
+
+CLAUDE_DIR="${HOME}/.claude"
+SNAPSHOT_DIR="${CLAUDE_SNAPSHOTS_DIR:-${HOME}/.claude-snapshots}"
+DRY_RUN=false
+TARGET="latest"
+
+usage() {
+  echo "Usage: claude-restore [snapshot-name|latest] [--dry-run] [--dir <path>]"
+  echo "  latest      Restore most recent snapshot (default)"
+  echo "  --dry-run   Preview what would be restored"
+  echo "  --dir       Override snapshot directory (default: CLAUDE_SNAPSHOTS_DIR or ~/.claude-snapshots)"
+  exit 1
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY_RUN=true; shift ;;
+    --dir) SNAPSHOT_DIR="$2"; shift 2 ;;
+    -h|--help) usage ;;
+    --*) echo "Unknown option: $1"; usage ;;
+    *) TARGET="$1"; shift ;;
+  esac
+done
+
+if [ ! -d "$SNAPSHOT_DIR" ]; then
+  echo "Snapshot directory not found: $SNAPSHOT_DIR"
+  exit 1
+fi
+
+if [ "$TARGET" = "latest" ]; then
+  SNAPSHOT_PATH=$(ls -t "$SNAPSHOT_DIR"/claude-*.tar.gz 2>/dev/null | head -1)
+  if [ -z "$SNAPSHOT_PATH" ]; then
+    echo "No snapshots found in $SNAPSHOT_DIR"
+    exit 1
+  fi
+else
+  # Accept bare name (claude-20260101-120000) or full filename or full path
+  if [ -f "$TARGET" ]; then
+    SNAPSHOT_PATH="$TARGET"
+  elif [ -f "${SNAPSHOT_DIR}/${TARGET}" ]; then
+    SNAPSHOT_PATH="${SNAPSHOT_DIR}/${TARGET}"
+  elif [ -f "${SNAPSHOT_DIR}/${TARGET}.tar.gz" ]; then
+    SNAPSHOT_PATH="${SNAPSHOT_DIR}/${TARGET}.tar.gz"
+  else
+    echo "Snapshot not found: $TARGET"
+    echo "Available snapshots:"
+    ls -t "$SNAPSHOT_DIR"/claude-*.tar.gz 2>/dev/null | xargs -I{} basename {} || echo "  (none)"
+    exit 1
+  fi
+fi
+
+echo "Snapshot: $SNAPSHOT_PATH"
+
+if [ "$DRY_RUN" = true ]; then
+  echo "Dry run — files that would be restored:"
+  tar -tzf "$SNAPSHOT_PATH"
+  exit 0
+fi
+
+echo "Restoring to $CLAUDE_DIR (merge — existing files not in archive are preserved)..."
+tar -xzf "$SNAPSHOT_PATH" -C "$HOME"
+echo "Restore complete."

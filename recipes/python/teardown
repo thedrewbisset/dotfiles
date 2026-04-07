@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+echo "Tearing down Python conda environments..."
+
+if ! command -v conda &> /dev/null; then
+  echo "conda not found — nothing to remove"
+  exit 0
+fi
+
+for env in base-dev base-ml; do
+  if conda env list | grep -q "^${env} "; then
+    conda env remove -n "$env" -y
+    echo "Removed conda env: $env"
+  else
+    echo "Conda env not found, skipping: $env"
+  fi
+done

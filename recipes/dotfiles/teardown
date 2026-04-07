@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+dir=$PWD
+target_home="${TARGET_HOME:-$HOME}"
+
+echo "Tearing down dotfiles symlinks from $target_home..."
+
+dotfiles="$(ls -Ap source | grep -v deprecated)"
+
+for dotfile in $dotfiles; do
+  dotfile="${dotfile%/}"
+  target_path="$target_home/$dotfile"
+
+  # Special handling for SSH directory — install only symlinks config inside it
+  if [[ "$dotfile" == ".ssh" ]]; then
+    ssh_config="$target_home/.ssh/config"
+    if [ -L "$ssh_config" ]; then
+      rm "$ssh_config"
+      echo "Removed symlink: $ssh_config"
+    fi
+    continue
+  fi
+
+  if [ -L "$target_path" ]; then
+    rm "$target_path"
+    echo "Removed symlink: $target_path"
+  fi
+done

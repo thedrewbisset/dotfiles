@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -e
+
+CLAUDE_DIR="${HOME}/.claude"
+SNAPSHOT_DIR="${CLAUDE_SNAPSHOTS_DIR:-${HOME}/.claude-snapshots}"
+FULL=false
+
+usage() {
+  echo "Usage: claude-backup [--full] [--dir <path>]"
+  echo "  --full    Include projects/, debug/, history.jsonl"
+  echo "  --dir     Override snapshot directory (default: CLAUDE_SNAPSHOTS_DIR or ~/.claude-snapshots)"
+  exit 1
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --full) FULL=true; shift ;;
+    --dir) SNAPSHOT_DIR="$2"; shift 2 ;;
+    -h|--help) usage ;;
+    *) echo "Unknown option: $1"; usage ;;
+  esac
+done
+
+mkdir -p "$SNAPSHOT_DIR"
+
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+SNAPSHOT_NAME="claude-${TIMESTAMP}.tar.gz"
+SNAPSHOT_PATH="${SNAPSHOT_DIR}/${SNAPSHOT_NAME}"
+
+# Build exclusion list
+EXCLUDES=(
+  "./.claude/local"
+  "./.claude/debug"
+  "./.claude/session-env"
+  "./.claude/shell-snapshots"
+  "./.claude/file-history"
+  "./.claude/telemetry"
+  "./.claude/statsig"
+  "./.claude/todos"
+  "./.claude/paste-cache"
+  "./.claude/projects"
+  "./.claude/plugins/cache"
+  "./.claude/plugins/repos"
+  "./.claude/plugins/marketplaces"
+)
+
+if [ "$FULL" = false ]; then
+  EXCLUDES+=("./.claude/history.jsonl")
+fi
+
+EXCLUDE_ARGS=()
+for excl in "${EXCLUDES[@]}"; do
+  EXCLUDE_ARGS+=("--exclude=$excl")
+done
+
+echo "Creating snapshot: $SNAPSHOT_PATH"
+tar -czf "$SNAPSHOT_PATH" \
+  "${EXCLUDE_ARGS[@]}" \
+  -C "$HOME" \
+  .claude
+
+echo "Snapshot created: $SNAPSHOT_PATH"
+ls -lh "$SNAPSHOT_PATH"

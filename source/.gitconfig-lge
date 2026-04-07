@@ -1,0 +1,6 @@
+[user]
+  name = drewexponential
+  email = drew@letsgoexponential.com
+
+[core]
+  sshCommand = ssh -i ~/.ssh/github.com-lge -o IdentitiesOnly=yes

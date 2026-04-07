@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+echo "Tearing down NPM global packages..."
+
+if ! command -v npm &> /dev/null; then
+  echo "npm not found — nothing to remove"
+  exit 0
+fi
+
+for package in @anthropic-ai/claude-code; do
+  if npm list -g "$package" &> /dev/null; then
+    npm uninstall -g "$package"
+    echo "Removed: $package"
+  else
+    echo "Package not installed, skipping: $package"
+  fi
+done

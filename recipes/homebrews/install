@@ -25,6 +25,7 @@ sip ctags
 sip docker
 sip docker-compose
 sip erlang
+sip flyctl
 sip fzf
 sip gawk
 sip gcc
@@ -51,4 +52,5 @@ sip yt-dlp
 sip zellij
 
 sip_cask alfred
+sip_cask session-manager-plugin
 sip_cask rectangle
