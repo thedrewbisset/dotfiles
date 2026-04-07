@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -e
+
+DOTFILES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+usage() {
+  echo "Usage: claude-worktree <repo-path> [platform] [branch-name]"
+  echo "  repo-path     Absolute path to the git repo"
+  echo "  platform      base|python|node (default: base)"
+  echo "  branch-name   Branch name for worktree (default: claude-session-TIMESTAMP)"
+  exit 1
+}
+
+REPO_PATH="${1:-}"
+PLATFORM="${2:-base}"
+BRANCH_NAME="${3:-claude-session-$(date +%Y%m%d-%H%M%S)}"
+
+if [[ -z "$REPO_PATH" ]]; then
+  usage
+fi
+
+if [[ ! -d "$REPO_PATH/.git" ]]; then
+  echo "Error: $REPO_PATH is not a git repository"
+  exit 1
+fi
+
+case "$PLATFORM" in
+  base|python|node) ;;
+  *)
+    echo "Error: unknown platform '$PLATFORM' — must be base, python, or node"
+    exit 1
+    ;;
+esac
+
+WORKTREE_PATH="$REPO_PATH/.worktrees/$BRANCH_NAME"
+
+echo "Creating worktree: $WORKTREE_PATH (branch: $BRANCH_NAME)"
+git -C "$REPO_PATH" worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME"
+
+echo "Launching Claude Code container ($PLATFORM)..."
+WORKTREE_PATH="$WORKTREE_PATH" \
+  docker compose -f "$DOTFILES_DIR/recipes/claude/docker/docker-compose.yml" \
+  run --rm "$PLATFORM"
+
+REMOVE_WORKTREE=""
+read -r -p "Remove worktree '$BRANCH_NAME'? [y/N] " REMOVE_WORKTREE
+
+if [[ "$REMOVE_WORKTREE" =~ ^[Yy]$ ]]; then
+  git -C "$REPO_PATH" worktree remove "$WORKTREE_PATH"
+  echo "Worktree removed."
+else
+  echo "Worktree kept at: $WORKTREE_PATH"
+fi

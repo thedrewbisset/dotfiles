@@ -1,30 +1,218 @@
-# Overview
+# Dotfiles
 
-This project holds dotfile configuration and setup scripts used to bootstrap a dev environment; it is designed to be run on osx.
+Bootstrap and maintain a macOS development environment. Recipes handle installation of dotfiles, tools, and configuration. All recipes are idempotent — safe to run multiple times.
 
-The installer sources various recipe files for setting up dotfiles, vim-plugins, and homebrews.
+---
 
-The dotfile recipe will establish symbolic links in`$HOME` to the dotfiles in `source`. This way configuration can easily be removed from the environment without impacting the source. It will also respect any existing dotfiles in `$HOME`, prompting you to either overwrite the file with the symbolic link or skip without overwriting. This makes it easy to use the source files a la carte although some awareness should be shown to interdependencies between say ``.vim` and `.vimrc`.
+## Architecture
 
-The vim-plugins recipe was designed to work with vim 8. If your system doesn't have this version installed, the homebrew recipe will take care of reconciling that.
+### Recipe system
 
-# Setup
+Recipes live in `recipes/<name>/` and follow a consistent directory structure:
 
-You can install one or more recipes with
+```
+recipes/
+├── dotfiles/
+│   ├── install     # symlinks source/ → $HOME
+│   └── teardown    # removes those symlinks
+├── claude/
+│   ├── install     # symlinks source/.claude/ → ~/.claude/
+│   ├── teardown    # removes those symlinks
+│   └── docker/     # Containerized Claude Code (C3) — see below
+├── homebrews/
+│   └── install
+├── vim-plugins/
+│   └── install
+└── ...             # all other recipes follow the same pattern
+```
+
+The main installer (`bin/install.sh`) and teardown script (`bin/teardown.sh`) source the appropriate recipe file. Recipes that install global system packages (homebrews, rubies, kiex, etc.) do not have teardown scripts — those must be removed manually.
+
+### Dotfiles
+
+`source/` contains the actual dotfiles. The `dotfiles` recipe creates symlinks from `$HOME` to each file in `source/`, making configuration easy to track and remove without touching the source.
+
+Conflict handling is interactive — you'll be prompted to overwrite or skip any file that already exists at the target path.
+
+**Special cases:**
+- `.ssh/` — the directory is created with correct permissions (`700`); only `.ssh/config` is symlinked (private keys are never committed)
+- `.claude/` — managed by the `claude` recipe (see below)
+
+### Claude Code configuration
+
+`source/.claude/` holds source-controlled Claude Code configuration:
+
+```
+source/.claude/
+├── CLAUDE.md           # Global user instructions
+├── settings.json       # Claude Code settings (no secrets)
+├── skills/             # Custom slash-command skills
+│   ├── patch-bundler/
+│   └── patch-bundler-poetry/
+└── plugins/            # Plugin registry config
+    ├── config.json
+    ├── installed_plugins.json
+    ├── blocklist.json
+    └── known_marketplaces.json
+```
+
+`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other secrets. Set those in your shell environment or a local `.env` file — never committed.
+
+The `claude` recipe symlinks these into `~/.claude/`. Live Claude Code state (`history.jsonl`, `projects/`, `local/`, etc.) is never touched.
+
+---
+
+## Installation
 
 ```bash
-# install all recipes
-$ bin/install all
+# Install everything
+bin/install.sh all
 
-# install dotfiles only
-$ bin/install dotfiles
-
-# install vim-plugins only
-$ bin/install vim-plugins
-
-# install homebrews only
-$ bin/install homebrews
-
-# install rubies only
-$ bin/install rubies
+# Install a specific recipe
+bin/install.sh dotfiles
+bin/install.sh claude
+bin/install.sh vim-plugins
+bin/install.sh homebrews
+bin/install.sh rubies
+bin/install.sh kiex
+bin/install.sh python
+bin/install.sh npm
+bin/install.sh bats
+bin/install.sh zsh
 ```
+
+### Test against a temp directory
+
+Use `--target` to point symlinks at a directory other than `$HOME`. Useful for verifying provisioning before touching your live environment:
+
+```bash
+mkdir /tmp/test-home
+bin/install.sh --target /tmp/test-home dotfiles
+bin/install.sh --target /tmp/test-home claude
+```
+
+---
+
+## Teardown
+
+Removes symlinks created by a recipe. Only removes symlinks — real files are never touched.
+
+```bash
+# Remove all managed symlinks
+bin/teardown.sh all
+
+# Remove symlinks for a specific recipe
+bin/teardown.sh dotfiles
+bin/teardown.sh claude
+
+# Remove installed artifacts for project-local recipes
+bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
+bin/teardown.sh bats          # removes cloned bats from source/.bats/
+bin/teardown.sh python        # removes base-dev and base-ml conda environments
+bin/teardown.sh npm           # uninstalls global npm packages
+
+# Teardown into a non-$HOME target (mirrors --target from install)
+bin/teardown.sh --target /tmp/test-home dotfiles
+```
+
+Recipes that install global packages (homebrews, rubies, etc.) print a message instead of attempting teardown.
+
+---
+
+## Claude Code backup and restore
+
+Two scripts manage snapshots of `~/.claude/`:
+
+```bash
+# Create a snapshot (excludes large/ephemeral dirs: local/, debug/, projects/)
+bin/claude-backup
+
+# Create a full snapshot (includes history.jsonl, projects/)
+bin/claude-backup --full
+
+# Write snapshot to a custom directory
+bin/claude-backup --dir /path/to/backups
+
+# Restore most recent snapshot
+bin/claude-restore
+
+# Restore a specific snapshot
+bin/claude-restore claude-20260101-120000
+
+# Preview what would be restored without extracting
+bin/claude-restore --dry-run
+```
+
+Snapshots are written to `~/.claude-snapshots/` by default. Override with the `CLAUDE_SNAPSHOTS_DIR` environment variable.
+
+Shell aliases (available after installing dotfiles):
+- `cb` → `claude-backup`
+- `cr` → `claude-restore`
+
+---
+
+## Containerized Claude Code (C3)
+
+Run Claude Code in an ephemeral Docker container against an isolated git worktree. Useful for sandboxed sessions that don't touch your working tree.
+
+Infrastructure lives in `recipes/claude/docker/`:
+
+```
+recipes/claude/docker/
+├── base/Dockerfile     # Ubuntu 24.04 + Node LTS + Claude Code CLI
+├── python/Dockerfile   # Extends base + Python 3.12 + Poetry
+├── node/Dockerfile     # Extends base + Yarn
+├── docker-compose.yml  # Service definitions
+└── .env.example        # Template for local secrets (never committed)
+```
+
+### Quick start
+
+```bash
+bin/claude-worktree <repo-path> [platform] [branch-name]
+```
+
+```bash
+# Start a base session against a repo
+bin/claude-worktree ~/dev/projects/my-app
+
+# Start a Python session with a specific branch name
+bin/claude-worktree ~/dev/projects/my-app python fix/dependency-updates
+```
+
+The script:
+1. Creates a git worktree at `<repo>/.worktrees/<branch>`
+2. Launches the container with the worktree mounted at `/workspace`
+3. Mounts `~/.claude/` config read-only into the container
+4. Passes `AWS_BEARER_TOKEN_BEDROCK` from your host environment (never baked into the image)
+5. On exit, prompts whether to remove the worktree
+
+### Authentication
+
+The bearer token is passed at runtime via environment variable — it is never stored in the image or committed to the repo:
+
+```bash
+export AWS_BEARER_TOKEN_BEDROCK="<your-token>"
+bin/claude-worktree ~/dev/projects/my-app
+```
+
+### Building images manually
+
+```bash
+docker build -t claude-base -f recipes/claude/docker/base/Dockerfile .
+docker build -t claude-python -f recipes/claude/docker/python/Dockerfile .
+docker build -t claude-node -f recipes/claude/docker/node/Dockerfile .
+```
+
+---
+
+## SSH key setup
+
+After running the dotfiles recipe, generate SSH keys for each GitHub profile:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/github.com-profile1 -C "profile1@example.com"
+cat ~/.ssh/github.com-profile1.pub  # add to GitHub account
+```
+
+The SSH config is symlinked from `source/.ssh/config`. Private keys are generated locally and never committed.

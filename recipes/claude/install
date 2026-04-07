@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -e
+
+source 'bin/lib/tools'
+
+dir=$PWD
+claude_source="$dir/source/.claude"
+claude_target="${TARGET_HOME:-$HOME}/.claude"
+
+# Ensure target directory exists
+mkdir -p "$claude_target"
+mkdir -p "$claude_target/skills"
+mkdir -p "$claude_target/plugins"
+
+echo "Setting up Claude Code config..."
+
+# Symlink top-level config files
+set_link "$claude_source/CLAUDE.md" "$claude_target/CLAUDE.md"
+set_link "$claude_source/settings.json" "$claude_target/settings.json"
+
+# Symlink skills
+for skill_dir in "$claude_source/skills"/*/; do
+  skill_name=$(basename "$skill_dir")
+  set_link "$claude_source/skills/$skill_name" "$claude_target/skills/$skill_name"
+done
+
+# Symlink plugin config files (not cache/repos/marketplaces - those are managed by Claude)
+for plugin_file in config.json installed_plugins.json blocklist.json known_marketplaces.json; do
+  if [ -f "$claude_source/plugins/$plugin_file" ]; then
+    set_link "$claude_source/plugins/$plugin_file" "$claude_target/plugins/$plugin_file"
+  fi
+done
+
+echo "Claude Code config linked."
