@@ -36,6 +36,30 @@ Conflict handling is interactive — you'll be prompted to overwrite or skip any
 
 **Special cases:**
 - `.ssh/` — the directory is created with correct permissions (`700`); only `.ssh/config` is symlinked (private keys are never committed)
+- `.claude/` — managed by the `claude` recipe (see below)
+
+### Claude Code configuration
+
+`source/.claude/` holds source-controlled Claude Code configuration:
+
+```
+source/.claude/
+├── CLAUDE.md           # Global user instructions
+├── settings.json       # Claude Code settings (no secrets)
+├── skills/             # Custom slash-command skills
+│   ├── patch-bundler/
+│   └── patch-bundler-poetry/
+└── plugins/            # Plugin registry config
+    ├── config.json
+    ├── installed_plugins.json
+    ├── blocklist.json
+    └── known_marketplaces.json
+```
+
+`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other secrets. Set those in your shell environment or a local `.env` file — never committed.
+
+The `claude` recipe symlinks these into `~/.claude/`. Live Claude Code state (`history.jsonl`, `projects/`, `local/`, etc.) is never touched.
+
 ---
 
 ## Installation
@@ -46,6 +70,7 @@ bin/install.sh all
 
 # Install a specific recipe
 bin/install.sh dotfiles
+bin/install.sh claude
 bin/install.sh vim-plugins
 bin/install.sh homebrews
 bin/install.sh rubies
@@ -63,6 +88,7 @@ Use `--target` to point symlinks at a directory other than `$HOME`. Useful for v
 ```bash
 mkdir /tmp/test-home
 bin/install.sh --target /tmp/test-home dotfiles
+bin/install.sh --target /tmp/test-home claude
 ```
 
 ---
@@ -77,6 +103,7 @@ bin/teardown.sh all
 
 # Remove symlinks for a specific recipe
 bin/teardown.sh dotfiles
+bin/teardown.sh claude
 
 # Remove installed artifacts for project-local recipes
 bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
@@ -89,6 +116,38 @@ bin/teardown.sh --target /tmp/test-home dotfiles
 ```
 
 Recipes that install global packages (homebrews, rubies, etc.) print a message instead of attempting teardown.
+
+---
+
+## Claude Code backup and restore
+
+Two scripts manage snapshots of `~/.claude/`:
+
+```bash
+# Create a snapshot (excludes large/ephemeral dirs: local/, debug/, projects/)
+bin/claude-backup
+
+# Create a full snapshot (includes history.jsonl, projects/)
+bin/claude-backup --full
+
+# Write snapshot to a custom directory
+bin/claude-backup --dir /path/to/backups
+
+# Restore most recent snapshot
+bin/claude-restore
+
+# Restore a specific snapshot
+bin/claude-restore claude-20260101-120000
+
+# Preview what would be restored without extracting
+bin/claude-restore --dry-run
+```
+
+Snapshots are written to `~/.claude-snapshots/` by default. Override with the `CLAUDE_SNAPSHOTS_DIR` environment variable.
+
+Shell aliases (available after installing dotfiles):
+- `cb` → `claude-backup`
+- `cr` → `claude-restore`
 
 ---
 
