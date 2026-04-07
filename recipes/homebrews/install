@@ -52,4 +52,5 @@ sip yt-dlp
 sip zellij
 
 sip_cask alfred
+sip_cask session-manager-plugin
 sip_cask rectangle

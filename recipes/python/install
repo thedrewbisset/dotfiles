@@ -5,7 +5,7 @@ set -e
 PYTHON_VERSION="3.11"
 
 # Install miniconda if not already present
-source "$PWD/recipes/miniconda"
+source "$PWD/recipes/miniconda/install"
 
 # Initialize conda for this session if not already done
 if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then

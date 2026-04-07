@@ -11,7 +11,7 @@ dotfiles="$(ls -Ap source | grep -v deprecated)"
 for dotfile in $dotfiles; do
   dotfile="${dotfile%/}"
   source_path="$dir/source/$dotfile"
-  target_path="$HOME/$dotfile"
+  target_path="${TARGET_HOME:-$HOME}/$dotfile"
 
   [ -e $source_path ] || continue
 

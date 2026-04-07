@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+stdload_path="$PWD/source/.vim/pack/core/start"
+optload_path="$PWD/source/.vim/pack/core/opt"
+
+echo "Tearing down vim plugins..."
+
+for path in "$stdload_path" "$optload_path"; do
+  if [ -d "$path" ]; then
+    for plugin_dir in "$path"/*/; do
+      [ -d "$plugin_dir" ] || continue
+      rm -rf "$plugin_dir"
+      echo "Removed: $plugin_dir"
+    done
+  fi
+done

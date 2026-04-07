@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+bats_src="$PWD/source/.bats/src"
+
+echo "Tearing down bats..."
+
+if [ -d "$bats_src" ]; then
+  rm -rf "$bats_src"
+  echo "Removed: $bats_src"
+else
+  echo "Nothing to remove: $bats_src not found"
+fi
