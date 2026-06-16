@@ -4,9 +4,22 @@
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "4096",
     "MAX_THINKING_TOKENS": "1024"
   },
-  "model": "sonnet",
+  "model": "opus",
+  "statusLine": {
+    "type": "command",
+    "command": "sh ~/.claude/statusline-command.sh"
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true
   },
-  "alwaysThinkingEnabled": true
+  "alwaysThinkingEnabled": true,
+  "theme": "dark"
 }

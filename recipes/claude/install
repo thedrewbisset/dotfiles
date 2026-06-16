@@ -7,16 +7,29 @@ dir=$PWD
 claude_source="$dir/source/.claude"
 claude_target="${TARGET_HOME:-$HOME}/.claude"
 
+# ~/.claude must be a REAL directory: Claude Code's live home, with only the
+# curated files below symlinked in from the repo. A symlinked ~/.claude
+# (legacy whole-dir symlink into source/.claude) conflates live runtime state
+# with version-controlled config and is what produced the self-referential
+# CLAUDE.md link. Refuse to proceed until it's migrated to a real directory.
+if [ -L "$claude_target" ]; then
+  echo "ERROR: $claude_target is a symlink -> $(readlink "$claude_target")" >&2
+  echo "It must be a real directory so Claude's runtime state stays out of the repo." >&2
+  echo "Migrate first (move live state into a real ~/.claude, remove the symlink)," >&2
+  echo "then re-run this recipe to link the curated config files." >&2
+  return 1 2>/dev/null || exit 1
+fi
+
 # Ensure target directory exists
 mkdir -p "$claude_target"
 mkdir -p "$claude_target/skills"
-mkdir -p "$claude_target/plugins"
 
 echo "Setting up Claude Code config..."
 
 # Symlink top-level config files
 set_link "$claude_source/CLAUDE.md" "$claude_target/CLAUDE.md"
 set_link "$claude_source/settings.json" "$claude_target/settings.json"
+set_link "$claude_source/statusline-command.sh" "$claude_target/statusline-command.sh"
 
 # Symlink skills
 for skill_dir in "$claude_source/skills"/*/; do
@@ -24,11 +37,21 @@ for skill_dir in "$claude_source/skills"/*/; do
   set_link "$claude_source/skills/$skill_name" "$claude_target/skills/$skill_name"
 done
 
-# Symlink plugin config files (not cache/repos/marketplaces - those are managed by Claude)
-for plugin_file in config.json installed_plugins.json blocklist.json known_marketplaces.json; do
-  if [ -f "$claude_source/plugins/$plugin_file" ]; then
-    set_link "$claude_source/plugins/$plugin_file" "$claude_target/plugins/$plugin_file"
-  fi
-done
+# Plugins/marketplaces are not symlinked: they're declared in settings.json
+# (enabledPlugins + extraKnownMarketplaces) and Claude hydrates plugins/ itself.
 
 echo "Claude Code config linked."
+
+if ! command -v claude &>/dev/null; then
+  echo ""
+  read -r -p "Install Claude Code CLI? (Anthropic's native installer) [y/N] " _claude_response
+  if [[ "$_claude_response" =~ ^[Yy]$ ]]; then
+    echo "Installing Claude Code CLI..."
+    curl -fsSL https://claude.ai/install.sh | sh
+  else
+    echo "Skipping Claude Code CLI installation."
+  fi
+  unset _claude_response
+else
+  echo "Claude Code CLI already installed ($(claude --version 2>/dev/null || echo 'version unknown'))"
+fi
