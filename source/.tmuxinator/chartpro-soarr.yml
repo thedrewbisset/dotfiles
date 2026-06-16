@@ -1,0 +1,33 @@
+name: chartpro-soarr
+root: ~/dev/projects/chartpro/repositories
+
+windows:
+  - chartpro-backend:
+      root: ~/dev/projects/chartpro/repositories/chartpro-backend
+      panes:
+        - git checkout main && conda activate chartpro
+
+  - chartpro-web:
+      root: ~/dev/projects/chartpro/repositories/chartpro-web
+      panes:
+        - git checkout main
+
+  - chartpro-mobile:
+      root: ~/dev/projects/chartpro/repositories/chartpro-mobile
+      panes:
+        - git checkout main
+
+  - lambda-functions:
+      root: ~/dev/projects/chartpro/repositories/lambda-functions
+      panes:
+        - git checkout main && conda activate chartpro
+
+  - iac:
+      root: ~/dev/projects/chartpro/repositories/iac
+      panes:
+        - git checkout main
+
+  - chartpro-e2e-testing:
+      root: ~/dev/projects/chartpro/repositories/chartpro-e2e-testing
+      panes:
+        - git checkout main

@@ -1,0 +1,9 @@
+# /Users/drew/.tmuxinator/lge-bridge.yml
+
+name: lge-bridge
+root: ~/dev/projects/lge/joinbridgeva.com
+
+windows:
+  - joinbridgeva:
+      panes:
+        - git checkout main

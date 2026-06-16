@@ -1,0 +1,13 @@
+name: chartpro-praxxio
+root: ~/dev/projects/chartpro/repositories
+
+windows:
+  - praxxio-backend:
+      root: ~/dev/projects/chartpro/repositories/praxxio-backend
+      panes:
+        - git checkout main && conda activate praxxio
+
+  - praxxio-web:
+      root: ~/dev/projects/chartpro/repositories/praxxio-web
+      panes:
+        - git checkout main

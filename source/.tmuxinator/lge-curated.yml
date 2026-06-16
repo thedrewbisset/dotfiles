@@ -1,0 +1,8 @@
+name: lge-curated
+root: ~/dev/projects/lge/meetcuratedgetaways.com
+
+windows:
+  - meetcuratedgetaways:
+      root: ~/dev/projects/lge/meetcuratedgetaways.com
+      panes:
+        - git checkout main
