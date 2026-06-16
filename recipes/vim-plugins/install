@@ -15,7 +15,7 @@ fetch_plugin() {
   else
     git clone "git@github.com:$1/$2"
   fi
-  )
+  ) || echo "Warning: failed to install/update $1/$2, skipping."
 }
 
 load() {

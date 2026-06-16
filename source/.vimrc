@@ -121,6 +121,20 @@ inoremap <silent> <Bar>   <Bar><Esc>:call <SID>align()<CR>a
 " Load vim matchit for extended support of `%`
 runtime macros/matchit.vim
 
+" ALE: explicit linters per filetype — prevents Deno LSP from being
+" auto-detected and applied to Node.js/Next.js TypeScript projects
+let g:ale_linters = {
+\   'typescript':      ['tsserver'],
+\   'typescriptreact': ['tsserver'],
+\   'javascript':      ['tsserver'],
+\   'javascriptreact': ['tsserver'],
+\   'python':          ['pyright'],
+\   'ruby':            ['solargraph'],
+\   'elixir':          ['elixir-ls'],
+\   'sh':              ['shellcheck'],
+\}
+let g:ale_linters_explicit = 1
+
 " Use fzf for keybindings and fuzzy completion
 if isdirectory('/opt/homebrew/opt/fzf')
   set rtp+=/opt/homebrew/opt/fzf
