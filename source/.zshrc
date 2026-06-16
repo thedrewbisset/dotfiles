@@ -103,6 +103,9 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 # global poetry support
 export PATH="$PATH:/Users/drew/.local/bin"
 
+# Load SSH keys from macOS Keychain into agent if not already loaded
+ssh-add -l &>/dev/null || ssh-add --apple-load-keychain
+
 export GPG_TTY=$(tty)
 
 eval "$(rbenv init - zsh)"
