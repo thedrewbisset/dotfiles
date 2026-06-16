@@ -170,7 +170,8 @@ claude-chartpro() {
   export CLAUDE_CODE_USE_BEDROCK=1
   export AWS_REGION=us-west-2
   export AWS_PROFILE=bedrock
-  export ANTHROPIC_MODEL='us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+  export AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)"
+  export ANTHROPIC_MODEL='us.anthropic.claude-sonnet-4-6'
   export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
   echo "✅ Claude Code → AWS Bedrock (work)"
   claude "$@"

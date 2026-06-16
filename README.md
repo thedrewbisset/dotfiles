@@ -56,7 +56,7 @@ source/.claude/
     └── known_marketplaces.json
 ```
 
-`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other secrets. Set those in your shell environment or a local `.env` file — never committed.
+`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other secrets. Those are stored in the macOS Keychain and resolved at runtime — see [Secrets management](#secrets-management).
 
 The `claude` recipe symlinks these into `~/.claude/`. Live Claude Code state (`history.jsonl`, `projects/`, `local/`, etc.) is never touched.
 
@@ -248,10 +248,10 @@ The script:
 
 ### Authentication
 
-The bearer token is passed at runtime via environment variable — it is never stored in the image or committed to the repo:
+The bearer token is passed into the container at runtime via environment variable — never stored in the image or committed. Source it from the Keychain (see [Secrets management](#secrets-management)) so it's never typed in plaintext:
 
 ```bash
-export AWS_BEARER_TOKEN_BEDROCK="<your-token>"
+export AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)"
 bin/claude-worktree ~/dev/projects/my-app
 ```
 
@@ -262,6 +262,49 @@ docker build -t claude-base -f recipes/claude/docker/base/Dockerfile .
 docker build -t claude-python -f recipes/claude/docker/python/Dockerfile .
 docker build -t claude-node -f recipes/claude/docker/node/Dockerfile .
 ```
+
+---
+
+## Secrets management
+
+Secrets are **never** stored in plaintext in committed files or shell history. They live encrypted at rest in the macOS Keychain and are resolved at runtime via command substitution — committed files contain only the *lookup*, never the value.
+
+### Pattern
+
+**Store** a secret. Always use `pbpaste` for long values — the interactive `-w` prompt silently truncates long pastes (see gotcha below). `tr -d '[:space:]'` strips any stray whitespace the clipboard carried (safe, since base64 keys contain none):
+
+```bash
+security add-generic-password -a "$USER" -s <service-name> -U -w "$(pbpaste | tr -d '[:space:]')"
+```
+
+**Verify** without printing the secret:
+
+```bash
+security find-generic-password -s <service-name> -w >/dev/null && echo "stored OK"
+printf '%s' "$(security find-generic-password -s <service-name> -w)" | wc -c   # confirm expected length
+```
+
+**Reference** it where needed — committed files hold only this lookup:
+
+```bash
+export SOME_TOKEN="$(security find-generic-password -s <service-name> -w)"
+```
+
+**Rotate** by revoking the old credential at its source, then re-running the store command.
+
+### Worked example: AWS Bedrock API key
+
+`claude-chartpro()` (`source/.zshrc`) loads the Bedrock API key from Keychain only when invoked, so personal Claude sessions never carry it:
+
+```bash
+export AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)"
+```
+
+Store the key under service name `claude-bedrock-token` using the `pbpaste` method above.
+
+### Gotcha: the `-w` prompt truncates long pastes
+
+`security add-generic-password … -w` (with `-w` last) prompts for hidden input, but the terminal can **silently drop characters** from a long paste. A truncated Bedrock key (128 chars instead of the expected ~132) is accepted into Keychain yet rejected by AWS as invalid — a confusing failure. Always store long secrets via `pbpaste`, then verify the length.
 
 ---
 
