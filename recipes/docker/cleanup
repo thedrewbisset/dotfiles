@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Docker cleanup scanner — sourced by bin/diskclean
+
+if ! command -v docker &>/dev/null || ! docker info </dev/null &>/dev/null 2>&1; then
+  return 0
+fi
+
+# Docker images (non-dangling)
+while IFS=$'\t' read -r id repo_tag size created_at; do
+  [[ "$repo_tag" == "<none>:<none>" ]] && continue
+  [[ -z "$id" ]] && continue
+  last_mod="${created_at:0:10}"
+  register_artifact "docker-image" "$repo_tag ($id)" "$size" "$last_mod" "docker rmi -f $id"
+done < <(docker images --format $'{{.ID}}\t{{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}' </dev/null 2>/dev/null)
+
+# Dangling images
+while IFS=$'\t' read -r id size created_at; do
+  [[ -z "$id" ]] && continue
+  last_mod="${created_at:0:10}"
+  register_artifact "docker-dangling" "dangling image ${id:0:12}" "$size" "$last_mod" "docker rmi -f $id"
+done < <(docker images -f dangling=true --format $'{{.ID}}\t{{.Size}}\t{{.CreatedAt}}' </dev/null 2>/dev/null)
+
+# Stopped containers
+while IFS=$'\t' read -r id name size created_at; do
+  [[ -z "$id" ]] && continue
+  last_mod="${created_at:0:10}"
+  register_artifact "docker-container" "container: $name ($id)" "$size" "$last_mod" "docker rm $id"
+done < <(docker ps -a --filter status=exited --format $'{{.ID}}\t{{.Names}}\t{{.Size}}\t{{.CreatedAt}}' </dev/null 2>/dev/null)
+
+# Build cache
+build_cache_line=$(docker system df </dev/null 2>/dev/null | grep -i "Build Cache" || true)
+if [[ -n "$build_cache_line" ]]; then
+  cache_size=$(echo "$build_cache_line" | awk '{print $4}')
+  reclaimable=$(echo "$build_cache_line" | awk '{print $NF}' | tr -d '()')
+  [[ "$cache_size" == "0B" ]] || \
+    register_artifact "docker-build-cache" "Docker build cache (reclaimable: $reclaimable)" "$cache_size" "n/a" "docker builder prune -f"
+fi
+
+# Unused volumes
+while IFS= read -r vol; do
+  [[ -z "$vol" ]] && continue
+  register_artifact "docker-volume" "volume: $vol" "unknown" "n/a" "docker volume rm $vol"
+done < <(docker volume ls -qf dangling=true </dev/null 2>/dev/null)

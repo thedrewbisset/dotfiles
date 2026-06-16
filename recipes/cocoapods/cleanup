@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# CocoaPods cleanup scanner — sourced by bin/diskclean
+
+base_dir="${CLEANUP_BASE_DIR:-$HOME/dev}"
+
+# CocoaPods master spec repo
+pods_repos="$HOME/.cocoapods/repos"
+if [[ -d "$pods_repos" ]]; then
+  for repo_dir in "$pods_repos"/*/; do
+    [[ -d "$repo_dir" ]] || continue
+    repo_name="$(basename "$repo_dir")"
+    register_artifact "cocoapods-repo" "CocoaPods spec repo: $repo_name" \
+      "$(dir_size "$repo_dir")" "$(last_modified "$repo_dir")" \
+      "pod repo remove $repo_name"
+  done
+fi
+
+# CocoaPods cache
+pods_cache="$HOME/Library/Caches/CocoaPods"
+if [[ -d "$pods_cache" ]]; then
+  register_artifact "cocoapods-cache" "CocoaPods download cache" \
+    "$(dir_size "$pods_cache")" "$(last_modified "$pods_cache")" \
+    "pod cache clean --all"
+fi
+
+# Project Pods/ directories (installed dependencies)
+while IFS= read -r pods_dir; do
+  [[ -d "$pods_dir" ]] || continue
+  # confirm it's a CocoaPods Pods dir (has a Manifest.lock or Podfile.lock sibling)
+  parent="$(dirname "$pods_dir")"
+  [[ -f "$parent/Podfile" || -f "$parent/Podfile.lock" ]] || continue
+  kb="$(dir_size_kb "$pods_dir")"
+  [[ "$kb" -lt 10240 ]] && continue
+  rel_path="${pods_dir#$HOME/}"
+  register_artifact "pods-vendor" "Pods/ @ ~/$rel_path" \
+    "$(human_kb "$kb")" "$(last_modified "$pods_dir")" \
+    "rm -rf \"${pods_dir:?}\""
+done < <(find "$base_dir" \
+  -type d -name Pods \
+  -not -path '*/.git/*' \
+  -maxdepth 6 \
+  -prune 2>/dev/null)

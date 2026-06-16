@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$DOTFILES_ROOT/bin/lib/cleanup_tools"
+
+RECIPE="${1:-all}"
+
+usage() {
+  echo "Usage: bin/diskclean [all | docker | homebrews | npm | python | rubies | simulators | build | cocoapods | library]"
+  exit 1
+}
+
+# Recipes that need a project base dir scan
+needs_base_dir() {
+  case "$1" in all|npm|python|rubies|build|cocoapods) return 0 ;; esac
+  return 1
+}
+
+if needs_base_dir "$RECIPE"; then
+  printf "Enter base directory to scan for project artifacts [~/dev]: "
+  read -r base_input
+  base_input="${base_input:-~/dev}"
+  # expand tilde
+  CLEANUP_BASE_DIR="${base_input/#\~/$HOME}"
+  export CLEANUP_BASE_DIR
+fi
+
+source_recipe() {
+  local path="$DOTFILES_ROOT/recipes/$1/cleanup"
+  [[ -f "$path" ]] && source "$path" || true
+}
+
+case "$RECIPE" in
+  all)
+    source_recipe docker
+    source_recipe homebrews
+    source_recipe npm
+    source_recipe python
+    source_recipe rubies
+    source_recipe simulators
+    source_recipe build-artifacts
+    source_recipe cocoapods
+    source_recipe library
+    ;;
+  docker|homebrews|npm|python|rubies|simulators|build-artifacts|cocoapods|library) source_recipe "$RECIPE" ;;
+  build) source_recipe build-artifacts ;;
+  *) echo "Unknown recipe: $RECIPE"; usage ;;
+esac
+
+if [[ ${#CLEANUP_ENTRIES[@]} -eq 0 ]]; then
+  echo "Nothing found to clean up."
+  exit 0
+fi
+
+# Build parallel display lines (indices match CLEANUP_ENTRIES)
+display_lines=()
+for entry in "${CLEANUP_ENTRIES[@]}"; do
+  IFS=$'\t' read -r category label size last_mod _delete_cmd <<< "$entry"
+  display_lines+=("$(printf "%-22s %-9s %-12s %s" "$category" "$size" "$last_mod" "$label")")
+done
+
+# Header line for fzf
+header="$(printf "%-22s %-9s %-12s %s" "CATEGORY" "SIZE" "LAST MOD" "LABEL")"
+
+# Run fzf multi-select
+selected=$(printf '%s\n' "${display_lines[@]}" | \
+  fzf --multi \
+      --header="$header
+TAB: select/deselect  Enter: confirm  Ctrl-C: cancel" \
+      --prompt="Select items to delete > " \
+      --height=80% \
+      --layout=reverse \
+      --no-sort) || true
+
+if [[ -z "$selected" ]]; then
+  echo "Cancelled."
+  exit 0
+fi
+
+# Map selected display lines back to full entries
+selected_entries=()
+while IFS= read -r line; do
+  for i in "${!display_lines[@]}"; do
+    if [[ "${display_lines[$i]}" == "$line" ]]; then
+      selected_entries+=("${CLEANUP_ENTRIES[$i]}")
+      break
+    fi
+  done
+done <<< "$selected"
+
+if [[ ${#selected_entries[@]} -eq 0 ]]; then
+  echo "Nothing selected."
+  exit 0
+fi
+
+# Confirmation manifest
+echo ""
+echo "═══════════════════════════════════════════════════════════════════════"
+echo "  ITEMS SELECTED FOR DELETION"
+echo "═══════════════════════════════════════════════════════════════════════"
+printf "  %-22s %-9s %-12s %s\n" "CATEGORY" "SIZE" "LAST MOD" "LABEL"
+echo "  ─────────────────────────────────────────────────────────────────────"
+for entry in "${selected_entries[@]}"; do
+  IFS=$'\t' read -r category label size last_mod _delete_cmd <<< "$entry"
+  printf "  %-22s %-9s %-12s %s\n" "$category" "$size" "$last_mod" "$label"
+done
+echo "  ─────────────────────────────────────────────────────────────────────"
+echo "  Total: ${#selected_entries[@]} item(s)"
+echo "═══════════════════════════════════════════════════════════════════════"
+echo ""
+
+printf "Delete these items? [y/N] "
+read -r confirm
+
+if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+echo ""
+failed=0
+for entry in "${selected_entries[@]}"; do
+  IFS=$'\t' read -r _category label _size _last_mod delete_cmd <<< "$entry"
+  if eval "$delete_cmd" 2>/dev/null; then
+    echo "  ✓ Deleted: $label"
+  else
+    echo "  ✗ Failed:  $label"
+    (( failed++ )) || true
+  fi
+done
+
+echo ""
+deleted=$(( ${#selected_entries[@]} - failed ))
+echo "Done. $deleted deleted, $failed failed."

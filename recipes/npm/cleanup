@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# npm/yarn/pnpm cleanup scanner — sourced by bin/diskclean
+
+base_dir="${CLEANUP_BASE_DIR:-$HOME/dev}"
+
+# npm global cache
+if command -v npm &>/dev/null; then
+  npm_cache="$(npm config get cache </dev/null 2>/dev/null)"
+  if [[ -d "$npm_cache" ]]; then
+    register_artifact "npm-cache" "npm global cache ($npm_cache)" \
+      "$(dir_size "$npm_cache")" "$(last_modified "$npm_cache")" \
+      "npm cache clean --force"
+  fi
+
+  # npm global packages
+  npm_prefix="$(npm config get prefix </dev/null 2>/dev/null)/lib/node_modules"
+  if [[ -d "$npm_prefix" ]]; then
+    for pkg_dir in "$npm_prefix"/*/; do
+      pkg="$(basename "$pkg_dir")"
+      [[ "$pkg" == "npm" ]] && continue  # don't suggest removing npm itself
+      kb="$(dir_size_kb "$pkg_dir")"
+      [[ "$kb" -lt 5120 ]] && continue  # skip tiny packages (<5M)
+      register_artifact "npm-global-pkg" "npm global: $pkg" \
+        "$(human_kb "$kb")" "$(last_modified "$pkg_dir")" \
+        "npm uninstall -g $pkg"
+    done
+  fi
+fi
+
+# yarn cache
+if command -v yarn &>/dev/null; then
+  yarn_cache="$(yarn cache dir </dev/null 2>/dev/null || true)"
+  if [[ -n "$yarn_cache" && -d "$yarn_cache" ]]; then
+    register_artifact "yarn-cache" "yarn global cache" \
+      "$(dir_size "$yarn_cache")" "$(last_modified "$yarn_cache")" \
+      "yarn cache clean"
+  fi
+fi
+
+# pnpm store
+if command -v pnpm &>/dev/null; then
+  pnpm_store="$(pnpm store path </dev/null 2>/dev/null || true)"
+  if [[ -n "$pnpm_store" && -d "$pnpm_store" ]]; then
+    register_artifact "pnpm-store" "pnpm content-addressable store" \
+      "$(dir_size "$pnpm_store")" "$(last_modified "$pnpm_store")" \
+      "pnpm store prune"
+  fi
+fi
+
+# Project node_modules
+while IFS= read -r nm_dir; do
+  [[ -d "$nm_dir" ]] || continue
+  kb="$(dir_size_kb "$nm_dir")"
+  [[ "$kb" -lt 10240 ]] && continue
+  rel_path="${nm_dir#$HOME/}"
+  register_artifact "node_modules" "node_modules @ ~/$rel_path" \
+    "$(human_kb "$kb")" "$(last_modified "$nm_dir")" \
+    "rm -rf \"${nm_dir:?}\""
+done < <(find "$base_dir" \
+  -type d -name node_modules \
+  -not -path '*/.git/*' \
+  -not -path '*/node_modules/*/node_modules' \
+  -maxdepth 7 \
+  -prune 2>/dev/null)

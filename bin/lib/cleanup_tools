@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Shared cleanup utilities sourced by bin/diskclean and recipe cleanup scripts
+
+CLEANUP_ENTRIES=()
+
+# register_artifact CATEGORY LABEL SIZE LAST_MOD DELETE_CMD
+register_artifact() {
+  local category="$1" label="$2" size="$3" last_mod="$4" delete_cmd="$5"
+  CLEANUP_ENTRIES+=("${category}	${label}	${size}	${last_mod}	${delete_cmd}")
+}
+
+# dir_size PATH -> human readable size string
+dir_size() {
+  [[ -e "$1" ]] || { echo "0B"; return; }
+  du -sh "$1" 2>/dev/null | cut -f1
+}
+
+# dir_size_kb PATH -> size in KB as an integer (0 if missing).
+# Walk the tree exactly once; callers derive both the filter and the
+# display string from this single measurement.
+dir_size_kb() {
+  [[ -e "$1" ]] || { echo 0; return; }
+  local kb
+  kb="$(du -sk "$1" 2>/dev/null | cut -f1)"
+  echo "${kb:-0}"
+}
+
+# human_kb KB -> human readable size string (e.g. 1536 -> "1.5G")
+human_kb() {
+  local kb="${1:-0}"
+  if   (( kb >= 1048576 )); then awk "BEGIN{printf \"%.1fG\", $kb/1048576}"
+  elif (( kb >= 1024 ));    then awk "BEGIN{printf \"%.0fM\", $kb/1024}"
+  else echo "${kb}K"
+  fi
+}
+
+# last_modified PATH -> YYYY-MM-DD (macOS stat), "unknown" on failure
+last_modified() {
+  [[ -e "$1" ]] || { echo "unknown"; return; }
+  stat -f "%Sm" -t "%Y-%m-%d" "$1" 2>/dev/null || echo "unknown"
+}
