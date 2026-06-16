@@ -35,6 +35,7 @@ if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/claude/install"
   source "$PWD/recipes/vim-plugins/install"
   source "$PWD/recipes/homebrews/install"
+  source "$PWD/recipes/postgresql/install"
   source "$PWD/recipes/kiex/install"
   source "$PWD/recipes/rubies/install"
   source "$PWD/recipes/python/install"
@@ -56,6 +57,9 @@ else
       ;;
     homebrews)
       source "$PWD/recipes/homebrews/install"
+      ;;
+    postgresql)
+      source "$PWD/recipes/postgresql/install"
       ;;
     kiex)
       source "$PWD/recipes/kiex/install"
