@@ -5,6 +5,13 @@ source 'bin/lib/tools'
 
 dir=$PWD
 
+# oh-my-zsh must exist before we symlink .oh-my-zsh/; install it if absent
+omz_target="${TARGET_HOME:-$HOME}/.oh-my-zsh"
+if [[ ! -d "$omz_target" ]] || [[ -z "$(ls -A "$omz_target" 2>/dev/null)" ]]; then
+  echo "oh-my-zsh not found, installing as prerequisite..."
+  source "$dir/recipes/oh-my-zsh/install"
+fi
+
 # Symlink dotfiles
 dotfiles="$(ls -Ap source | grep -v deprecated)"
 
@@ -14,6 +21,9 @@ for dotfile in $dotfiles; do
   target_path="${TARGET_HOME:-$HOME}/$dotfile"
 
   [ -e $source_path ] || continue
+
+  # oh-my-zsh is a runtime installation managed by the oh-my-zsh recipe, not a dotfile to symlink
+  [[ "$dotfile" == ".oh-my-zsh" ]] && continue
 
   # Special handling for SSH directory
   if [[ "$dotfile" == ".ssh" ]]; then
