@@ -103,6 +103,9 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 # global poetry support
 export PATH="$PATH:/Users/drew/.local/bin"
 
+# Load SSH keys from macOS Keychain into agent if not already loaded
+ssh-add -l &>/dev/null || ssh-add --apple-load-keychain
+
 export GPG_TTY=$(tty)
 
 eval "$(rbenv init - zsh)"
@@ -127,6 +130,7 @@ unset __conda_setup
 # Android Support
 export ANDROID_HOME=$HOME/Library/Android/sdk
 export PATH=$PATH:$ANDROID_HOME/emulator
+export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$ANDROID_HOME/tools
 export PATH=$PATH:$ANDROID_HOME/tools/bin
@@ -170,7 +174,8 @@ claude-chartpro() {
   export CLAUDE_CODE_USE_BEDROCK=1
   export AWS_REGION=us-west-2
   export AWS_PROFILE=bedrock
-  export ANTHROPIC_MODEL='us.anthropic.claude-sonnet-4-5-20250929-v1:0'
+  export AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)"
+  export ANTHROPIC_MODEL='us.anthropic.claude-sonnet-4-6'
   export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
   echo "✅ Claude Code → AWS Bedrock (work)"
   claude "$@"

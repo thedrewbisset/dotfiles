@@ -24,6 +24,7 @@ sip coreutils
 sip ctags
 sip docker
 sip docker-compose
+sip elixir-ls
 sip erlang
 sip flyctl
 sip fzf
@@ -45,6 +46,7 @@ sip rbenv
 sip redis
 sip ripgrep
 sip ruby-build
+sip shellcheck
 sip tmux
 sip vim
 sip wget
