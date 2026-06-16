@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Python cleanup scanner — sourced by bin/diskclean
+
+base_dir="${CLEANUP_BASE_DIR:-$HOME/dev}"
+
+# conda environments
+conda_sh="$HOME/miniconda3/etc/profile.d/conda.sh"
+if [[ -f "$conda_sh" ]]; then
+  # shellcheck disable=SC1090
+  source "$conda_sh"
+  if command -v conda &>/dev/null; then
+    # conda package + tarball cache
+    pkgs_dir="$HOME/miniconda3/pkgs"
+    if [[ -d "$pkgs_dir" ]]; then
+      register_artifact "conda-cache" "conda package/tarballs cache ($pkgs_dir)" \
+        "$(dir_size "$pkgs_dir")" "$(last_modified "$pkgs_dir")" \
+        "conda clean --all -y"
+    fi
+
+    # Individual conda environments (skip base)
+    while IFS= read -r env_path; do
+      [[ -z "$env_path" || "$env_path" == *"/miniconda3 "* ]] && continue
+      env_name="$(basename "$env_path")"
+      [[ "$env_name" == "base" ]] && continue
+      register_artifact "conda-env" "conda env: $env_name" \
+        "$(dir_size "$env_path")" "$(last_modified "$env_path")" \
+        "conda env remove -n $env_name -y"
+    done < <(conda env list </dev/null 2>/dev/null | grep -v '^#' | grep -v '^$' | awk '{print $NF}')
+  fi
+fi
+
+# pip cache
+if command -v pip &>/dev/null || command -v pip3 &>/dev/null; then
+  pip_cmd="$(command -v pip3 || command -v pip)"
+  pip_cache="$("$pip_cmd" cache dir </dev/null 2>/dev/null || echo "$HOME/Library/Caches/pip")"
+  if [[ -d "$pip_cache" ]]; then
+    register_artifact "pip-cache" "pip download cache ($pip_cache)" \
+      "$(dir_size "$pip_cache")" "$(last_modified "$pip_cache")" \
+      "$pip_cmd cache purge"
+  fi
+fi
+
+# poetry cache
+poetry_cache="$HOME/Library/Caches/pypoetry"
+if [[ -d "$poetry_cache" ]]; then
+  register_artifact "poetry-cache" "poetry package cache" \
+    "$(dir_size "$poetry_cache")" "$(last_modified "$poetry_cache")" \
+    "rm -rf \"${poetry_cache:?}/artifacts\" \"${poetry_cache:?}/cache\""
+fi
+
+# pyenv versions
+pyenv_versions="$HOME/.pyenv/versions"
+if [[ -d "$pyenv_versions" ]]; then
+  for ver_dir in "$pyenv_versions"/*/; do
+    [[ -d "$ver_dir" ]] || continue
+    ver="$(basename "$ver_dir")"
+    register_artifact "pyenv-version" "pyenv: $ver" \
+      "$(dir_size "$ver_dir")" "$(last_modified "$ver_dir")" \
+      "pyenv uninstall -f $ver"
+  done
+fi
+
+# Project .venv directories
+while IFS= read -r venv_dir; do
+  [[ -d "$venv_dir" ]] || continue
+  kb="$(dir_size_kb "$venv_dir")"
+  [[ "$kb" -lt 51200 ]] && continue  # <50M
+  rel_path="${venv_dir#$HOME/}"
+  register_artifact "venv" ".venv @ ~/$rel_path" \
+    "$(human_kb "$kb")" "$(last_modified "$venv_dir")" \
+    "rm -rf \"${venv_dir:?}\""
+done < <(find "$base_dir" \
+  -type d -name .venv \
+  -not -path '*/.git/*' \
+  -maxdepth 6 \
+  -prune 2>/dev/null)
+
+# __pycache__ aggregate
+pycache_count=0
+pycache_total_kb=0
+while IFS= read -r pc_dir; do
+  [[ -d "$pc_dir" ]] || continue
+  (( pycache_count++ )) || true
+  kb="$(du -sk "$pc_dir" 2>/dev/null | cut -f1)"
+  (( pycache_total_kb += kb )) || true
+done < <(find "$base_dir" \
+  -type d -name __pycache__ \
+  -not -path '*/.git/*' \
+  -maxdepth 8 \
+  -prune 2>/dev/null)
+
+if [[ "$pycache_count" -gt 0 ]]; then
+  if [[ "$pycache_total_kb" -ge 1048576 ]]; then
+    pycache_size="$(( pycache_total_kb / 1048576 ))G"
+  elif [[ "$pycache_total_kb" -ge 1024 ]]; then
+    pycache_size="$(( pycache_total_kb / 1024 ))M"
+  else
+    pycache_size="${pycache_total_kb}K"
+  fi
+  register_artifact "pycache" "__pycache__ dirs (${pycache_count} dirs under ~/${base_dir#$HOME/})" \
+    "$pycache_size" "various" \
+    "find \"${base_dir:?}\" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true"
+fi

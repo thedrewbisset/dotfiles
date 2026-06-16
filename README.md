@@ -119,6 +119,37 @@ Recipes that install global packages (homebrews, rubies, etc.) print a message i
 
 ---
 
+## Disk cleanup
+
+`bin/diskclean` reclaims disk space from the caches and build artifacts that development tools accumulate. It's recipe-based like the installer, but the recipes are `cleanup` scripts that *scan* rather than install.
+
+```bash
+# Scan everything, then pick what to delete
+bin/diskclean all
+
+# Scan a single category
+bin/diskclean library        # ~/Library: iOS device backups + app caches
+bin/diskclean simulators     # Xcode DerivedData, iOS DeviceSupport, simulators, Android AVDs
+bin/diskclean homebrews      # Homebrew download cache, stale formulae, logs
+bin/diskclean docker         # images, stopped containers, build cache, dangling volumes
+bin/diskclean npm            # npm/yarn/pnpm caches + project node_modules
+bin/diskclean python         # conda/pip/poetry caches, pyenv versions, .venv, __pycache__
+bin/diskclean rubies         # rbenv versions, gem/bundler caches, project .bundle
+bin/diskclean build          # .build, Rust target/, Gradle, Maven, .next/.nuxt, dist/, _build
+bin/diskclean cocoapods      # CocoaPods spec repos, cache, project Pods/
+```
+
+**How it works:** each recipe registers candidate artifacts (with size and last-modified date), then everything is shown in an `fzf` multi-select. You pick items, review a confirmation manifest, and only then are they deleted. Nothing is removed without explicit confirmation, and tool-native reclaim (`brew cleanup`, `docker rmi`, `pod cache clean`, etc.) is preferred over raw `rm` where available.
+
+**Notes:**
+- Requires [`fzf`](https://github.com/junegunn/fzf) for the interactive picker (`bin/install.sh homebrews` installs it).
+- Recipes that scan for project artifacts (`npm`, `python`, `rubies`, `build`, `cocoapods`, and `all`) prompt for a base directory to scan, defaulting to `~/dev`. Large project trees can take a few minutes to size.
+- `library`, `simulators`, `homebrews`, and `docker` target `~/Library` and system caches — they don't walk your project tree, so they return quickly.
+- `iOS DeviceSupport` keeps the current (latest) version and only offers older ones; `library` flags iOS device backups as **DATA** since deleting one loses that backup.
+- Docker space is reclaimed via the daemon, but macOS doesn't auto-shrink the `Docker.raw` disk image — reclaim that via Docker Desktop → Settings → Resources → Disk.
+
+---
+
 ## Claude Code backup and restore
 
 Two scripts manage snapshots of `~/.claude/`:

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Build artifact cleanup scanner — sourced by bin/diskclean
+
+base_dir="${CLEANUP_BASE_DIR:-$HOME/dev}"
+
+_register_build_dirs() {
+  local pattern="$1" category="$2" label_prefix="$3" min_mb="${4:-10}"
+  while IFS= read -r artifact_dir; do
+    [[ -d "$artifact_dir" ]] || continue
+    kb="$(dir_size_kb "$artifact_dir")"
+    [[ "$kb" -lt $(( min_mb * 1024 )) ]] && continue
+    rel_path="${artifact_dir#$HOME/}"
+    register_artifact "$category" "$label_prefix @ ~/$rel_path" \
+      "$(human_kb "$kb")" "$(last_modified "$artifact_dir")" \
+      "rm -rf \"${artifact_dir:?}\""
+  done < <(find "$base_dir" \
+    -type d -name "$pattern" \
+    -not -path '*/.git/*' \
+    -not -path '*/node_modules/*' \
+    -maxdepth 7 \
+    -prune 2>/dev/null)
+}
+
+# Swift/Xcode .build directories
+_register_build_dirs ".build"        "swift-build"   ".build"         50
+
+# Rust target directories (check for Cargo.toml sibling)
+while IFS= read -r target_dir; do
+  [[ -d "$target_dir" ]] || continue
+  parent="$(dirname "$target_dir")"
+  [[ -f "$parent/Cargo.toml" ]] || continue
+  kb="$(dir_size_kb "$target_dir")"
+  [[ "$kb" -lt 51200 ]] && continue  # <50M
+  rel_path="${target_dir#$HOME/}"
+  register_artifact "rust-target" "target/ @ ~/$rel_path" \
+    "$(human_kb "$kb")" "$(last_modified "$target_dir")" \
+    "rm -rf \"${target_dir:?}\""
+done < <(find "$base_dir" \
+  -type d -name target \
+  -not -path '*/.git/*' \
+  -not -path '*/node_modules/*' \
+  -maxdepth 6 \
+  -prune 2>/dev/null)
+
+# Gradle caches (global)
+gradle_cache="$HOME/.gradle/caches"
+if [[ -d "$gradle_cache" ]]; then
+  register_artifact "gradle-cache" "Gradle global caches (~/.gradle/caches)" \
+    "$(dir_size "$gradle_cache")" "$(last_modified "$gradle_cache")" \
+    "rm -rf \"${gradle_cache:?}\""
+fi
+
+# Maven local repo
+maven_repo="$HOME/.m2/repository"
+if [[ -d "$maven_repo" ]]; then
+  register_artifact "maven-repo" "Maven local repository (~/.m2/repository)" \
+    "$(dir_size "$maven_repo")" "$(last_modified "$maven_repo")" \
+    "rm -rf \"${maven_repo:?}\""
+fi
+
+# Project .gradle directories
+_register_build_dirs ".gradle"       "gradle-project" ".gradle"        10
+
+# Next.js / Nuxt build caches
+_register_build_dirs ".next"         "next-build"    ".next"           10
+_register_build_dirs ".nuxt"         "nuxt-build"    ".nuxt"           10
+
+# Generic dist/ output dirs (only if sibling package.json exists)
+while IFS= read -r dist_dir; do
+  [[ -d "$dist_dir" ]] || continue
+  parent="$(dirname "$dist_dir")"
+  [[ -f "$parent/package.json" ]] || continue
+  kb="$(dir_size_kb "$dist_dir")"
+  [[ "$kb" -lt 10240 ]] && continue
+  rel_path="${dist_dir#$HOME/}"
+  register_artifact "dist-output" "dist/ @ ~/$rel_path" \
+    "$(human_kb "$kb")" "$(last_modified "$dist_dir")" \
+    "rm -rf \"${dist_dir:?}\""
+done < <(find "$base_dir" \
+  -type d -name dist \
+  -not -path '*/.git/*' \
+  -not -path '*/node_modules/*' \
+  -maxdepth 6 \
+  -prune 2>/dev/null)
+
+# Elixir/Erlang _build directories
+_register_build_dirs "_build"        "elixir-build"  "_build"         10

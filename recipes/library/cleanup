@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# High-value ~/Library scanner — sourced by bin/diskclean
+# Targets the non-dev-tool space sinks that other recipes miss:
+# iOS device backups and general application caches.
+
+# iOS/iPadOS device backups (often the single biggest item in ~/Library).
+# These are real backups of your devices — deleting one loses that backup.
+backup_root="$HOME/Library/Application Support/MobileSync/Backup"
+if [[ -d "$backup_root" ]]; then
+  for backup_dir in "$backup_root"/*/; do
+    [[ -d "$backup_dir" ]] || continue
+    udid="$(basename "$backup_dir")"
+    # Try to surface the device name from the backup's Info.plist for a friendlier label.
+    device_name=""
+    info_plist="$backup_dir/Info.plist"
+    if [[ -f "$info_plist" ]] && command -v plutil &>/dev/null; then
+      device_name="$(plutil -extract "Device Name" raw -o - "$info_plist" 2>/dev/null || true)"
+    fi
+    label="iOS backup (DATA): ${device_name:-$udid}"
+    register_artifact "ios-backup" "$label" \
+      "$(dir_size "$backup_dir")" "$(last_modified "$backup_dir")" \
+      "rm -rf \"${backup_dir:?}\""
+  done
+fi
+
+# General application caches (~/Library/Caches/*). Safe — apps rebuild on demand.
+# Register each large top-level cache dir individually so you can pick per-app.
+caches_dir="$HOME/Library/Caches"
+if [[ -d "$caches_dir" ]]; then
+  for cache_dir in "$caches_dir"/*/; do
+    [[ -d "$cache_dir" ]] || continue
+    name="$(basename "$cache_dir")"
+    kb="$(dir_size_kb "$cache_dir")"
+    [[ "$kb" -lt 102400 ]] && continue  # skip small caches (<100M)
+    register_artifact "library-cache" "App cache: $name" \
+      "$(human_kb "$kb")" "$(last_modified "$cache_dir")" \
+      "rm -rf \"${cache_dir:?}\"/*"
+  done
+fi
+
+# Container caches (sandboxed apps store caches under Containers/.../Caches).
+containers_dir="$HOME/Library/Containers"
+if [[ -d "$containers_dir" ]]; then
+  while IFS= read -r cache_dir; do
+    [[ -d "$cache_dir" ]] || continue
+    kb="$(dir_size_kb "$cache_dir")"
+    [[ "$kb" -lt 102400 ]] && continue  # <100M
+    app="$(basename "$(dirname "$(dirname "$(dirname "$cache_dir")")")")"
+    register_artifact "container-cache" "Container cache: $app" \
+      "$(human_kb "$kb")" "$(last_modified "$cache_dir")" \
+      "rm -rf \"${cache_dir:?}\"/*"
+  done < <(find "$containers_dir" \
+    -type d -path '*/Data/Library/Caches' \
+    -maxdepth 5 \
+    -prune 2>/dev/null)
+fi
