@@ -23,6 +23,18 @@ function set_link {
   source_path=$1
   target_path=$2
 
+  # Refuse to link a path onto itself. This happens when the target's parent
+  # directory is a symlink back into the source tree (e.g. ~/.claude ->
+  # source/.claude), which would otherwise create a self-referential,
+  # unreadable symlink. Resolve via the parent dir so it works even when the
+  # target doesn't exist yet or is already a broken self-link.
+  target_parent="$(cd "$(dirname "$target_path")" 2>/dev/null && pwd -P)"
+  source_resolved="$(cd "$(dirname "$source_path")" 2>/dev/null && pwd -P)/$(basename "$source_path")"
+  if [ -n "$target_parent" ] && [ "$target_parent/$(basename "$target_path")" = "$source_resolved" ]; then
+    echo "Skipping $target_path (already in place; resolves to source)"
+    return 0
+  fi
+
   if [ -e $target_path ] || [ -L $target_path ]; then
     if handle_conflicting $target_path; then
       ln -s $source_path $target_path
