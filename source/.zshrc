@@ -60,9 +60,10 @@ COMPLETION_WAITING_DOTS="true"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode macos fzf tmuxinator)
+plugins=(aliases aws brew colored-man-pages common-aliases copybuffer git vi-mode macos tmuxinator)
+command -v fzf &>/dev/null && plugins+=(fzf)
 
-source $ZSH/oh-my-zsh.sh
+[[ -f "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 
 # User configuration
 
@@ -97,35 +98,38 @@ source $HOME/.aliases
 export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 
-# NPM global packages
-export PATH="$HOME/.npm-global/bin:$PATH"
-
-# global poetry support
-export PATH="$PATH:/Users/drew/.local/bin"
+# User local binaries (poetry, claude-code, etc.)
+export PATH="$HOME/.local/bin:$PATH"
 
 # Load SSH keys from macOS Keychain into agent if not already loaded
 ssh-add -l &>/dev/null || ssh-add --apple-load-keychain
 
 export GPG_TTY=$(tty)
 
-eval "$(rbenv init - zsh)"
+command -v rbenv &>/dev/null && eval "$(rbenv init - zsh)"
 test -s "$HOME/.kiex/scripts/kiex" && source "$HOME/.kiex/scripts/kiex"
 
 # >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/Users/drew/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/Users/drew/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/Users/drew/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/Users/drew/miniconda3/bin:$PATH"
-    fi
+if [ -f "$HOME/miniconda3/bin/conda" ]; then
+  __conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
+  if [ $? -eq 0 ]; then
+      eval "$__conda_setup"
+  else
+      if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+          . "$HOME/miniconda3/etc/profile.d/conda.sh"
+      else
+          export PATH="$HOME/miniconda3/bin:$PATH"
+      fi
+  fi
+  unset __conda_setup
 fi
-unset __conda_setup
 # <<< conda initialize <<<
 
+
+# nvm (Node Version Manager)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # Android Support
 export ANDROID_HOME=$HOME/Library/Android/sdk

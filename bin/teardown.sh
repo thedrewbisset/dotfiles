@@ -24,7 +24,7 @@ if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/vim-plugins/teardown"
   source "$PWD/recipes/bats/teardown"
   source "$PWD/recipes/python/teardown"
-  source "$PWD/recipes/npm/teardown"
+  source "$PWD/recipes/nvm/teardown"
   for recipe in oh-my-zsh homebrews kiex rubies miniconda nix; do
     echo "No teardown available for recipe: $recipe (remove manually)"
   done
@@ -45,8 +45,8 @@ else
     python)
       source "$PWD/recipes/python/teardown"
       ;;
-    npm)
-      source "$PWD/recipes/npm/teardown"
+    nvm)
+      source "$PWD/recipes/nvm/teardown"
       ;;
     oh-my-zsh|homebrews|kiex|rubies|miniconda|nix|zsh)
       echo "No teardown available for recipe: $RECIPE (remove manually)"

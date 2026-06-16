@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+nvm_dir="$HOME/.nvm"
+
+echo "Tearing down nvm..."
+
+if [ -d "$nvm_dir" ]; then
+  rm -rf "$nvm_dir"
+  echo "Removed: $nvm_dir (nvm and all installed Node.js versions)"
+else
+  echo "Nothing to remove: $nvm_dir not found"
+fi
