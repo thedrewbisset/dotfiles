@@ -73,6 +73,7 @@ bin/install.sh dotfiles
 bin/install.sh claude
 bin/install.sh vim-plugins
 bin/install.sh homebrews
+bin/install.sh postgresql
 bin/install.sh rubies
 bin/install.sh kiex
 bin/install.sh python
@@ -115,7 +116,34 @@ bin/teardown.sh npm           # uninstalls global npm packages
 bin/teardown.sh --target /tmp/test-home dotfiles
 ```
 
-Recipes that install global packages (homebrews, rubies, etc.) print a message instead of attempting teardown.
+Recipes that install global packages (homebrews, rubies, postgresql, etc.) print a message instead of attempting teardown.
+
+---
+
+## PostgreSQL Setup
+
+The `postgresql` recipe bootstraps a local PostgreSQL 16 instance for development:
+
+```bash
+bin/install.sh postgresql
+```
+
+**What it does:**
+- Ensures PostgreSQL@16 is running via Homebrew services
+- Creates `postgres` role with password `mysecretpassword` (standard dev password)
+- Offers to clean up old PostgreSQL installations (14, 17)
+
+**Requirements:**
+- Must run `bin/install.sh homebrews` first (installs postgresql@16)
+
+**Connection details:**
+- Host: `localhost`
+- Port: `5432`
+- Role: `postgres`
+- Password: `mysecretpassword`
+- Database: `postgres` (default)
+
+Use `psql -U postgres -d postgres` to connect (will prompt for password).
 
 ---
 

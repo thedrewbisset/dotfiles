@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -e
+
+echo "🐘 PostgreSQL Bootstrap"
+echo "======================="
+
+# Ensure PostgreSQL@16 is installed (should already be done by homebrews recipe)
+if ! command -v psql &> /dev/null; then
+  echo "❌ PostgreSQL not found. Run 'bin/install.sh homebrews' first."
+  exit 1
+fi
+
+# Check which PostgreSQL version is available
+PG_VERSION=$(psql --version | grep -oE '[0-9]+' | head -1)
+echo "✓ Found PostgreSQL version: $PG_VERSION"
+
+# Start PostgreSQL@16 if not already running
+if ! brew services list | grep "postgresql@16" | grep -q "started"; then
+  echo "Starting PostgreSQL@16..."
+  brew services start postgresql@16
+  # Give it a moment to start
+  sleep 2
+else
+  echo "✓ PostgreSQL@16 already running"
+fi
+
+# Wait for PostgreSQL to be ready
+echo "Waiting for PostgreSQL to be ready..."
+for i in {1..10}; do
+  if psql -U drew -d postgres -c "SELECT 1" &>/dev/null; then
+    echo "✓ PostgreSQL is ready"
+    break
+  fi
+  if [ $i -eq 10 ]; then
+    echo "❌ PostgreSQL failed to start after 10 seconds"
+    exit 1
+  fi
+  sleep 1
+done
+
+# Create postgres role if it doesn't exist
+echo "Creating 'postgres' role..."
+if psql -U drew -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='postgres'" | grep -q 1; then
+  echo "✓ 'postgres' role already exists"
+else
+  psql -U drew -d postgres -c "CREATE ROLE postgres WITH LOGIN PASSWORD 'mysecretpassword' SUPERUSER CREATEDB CREATEROLE;"
+  echo "✓ Created 'postgres' role with password 'mysecretpassword'"
+fi
+
+# Optional: Clean up old PostgreSQL versions
+echo ""
+echo "Checking for old PostgreSQL installations..."
+
+# Check for PostgreSQL@14
+if brew list postgresql@14 &>/dev/null; then
+  echo ""
+  echo "⚠️  Found PostgreSQL@14 (older version)"
+  read -p "Remove PostgreSQL@14? [y/N] " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Stopping PostgreSQL@14..."
+    brew services stop postgresql@14 || true
+    echo "Uninstalling PostgreSQL@14..."
+    brew uninstall postgresql@14
+    echo "Removing PostgreSQL@14 data directory..."
+    rm -rf /opt/homebrew/var/postgresql@14
+    echo "✓ Removed PostgreSQL@14"
+  else
+    echo "⏭  Skipping PostgreSQL@14 removal"
+  fi
+fi
+
+# Check for official PostgreSQL installer (PostgreSQL 17)
+if [ -d "/Library/PostgreSQL/17" ]; then
+  echo ""
+  echo "⚠️  Found PostgreSQL 17 (official installer)"
+  echo "This was installed via the official PostgreSQL installer, not Homebrew."
+  echo "To remove it manually:"
+  echo "  sudo /Library/PostgreSQL/17/uninstall-postgresql.app"
+  echo "  or: sudo rm -rf /Library/PostgreSQL/17"
+fi
+
+echo ""
+echo "✅ PostgreSQL bootstrap complete!"
+echo ""
+echo "Summary:"
+echo "  • PostgreSQL@16 is running via Homebrew"
+echo "  • Role 'postgres' created with password 'mysecretpassword'"
+echo "  • Use 'psql -U postgres -d postgres' to connect"
