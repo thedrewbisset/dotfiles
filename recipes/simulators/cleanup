@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# iOS Simulator and Android AVD cleanup scanner — sourced by bin/diskclean
+
+# iOS Simulators (Xcode)
+if command -v xcrun &>/dev/null; then
+  # List all simulator devices with their data dirs directly
+  if command -v python3 &>/dev/null; then
+    while IFS=$'\t' read -r sim_id name state runtime; do
+      [[ -z "$sim_id" ]] && continue
+      sim_path="$HOME/Library/Developer/CoreSimulator/Devices/$sim_id"
+      [[ -d "$sim_path" ]] || continue
+      kb="$(dir_size_kb "$sim_path")"
+      [[ "$kb" -lt 102400 ]] && continue  # <100M
+      register_artifact "ios-simulator" "iOS Sim: $name / $runtime [$state]" \
+        "$(human_kb "$kb")" "$(last_modified "$sim_path")" \
+        "xcrun simctl delete $sim_id"
+    done < <(xcrun simctl list devices --json 2>/dev/null | \
+      python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for runtime, devices in data.get('devices', {}).items():
+  rt = runtime.split('.')[-1].replace('-', ' ')
+  for d in devices:
+    print(d['udid'] + '\t' + d['name'] + '\t' + d['state'] + '\t' + rt)
+" 2>/dev/null || true)
+  fi
+
+  # Xcode DerivedData
+  derived_data="$HOME/Library/Developer/Xcode/DerivedData"
+  if [[ -d "$derived_data" ]]; then
+    for proj_dir in "$derived_data"/*/; do
+      [[ -d "$proj_dir" ]] || continue
+      proj="$(basename "$proj_dir")"
+      kb="$(dir_size_kb "$proj_dir")"
+      [[ "$kb" -lt 102400 ]] && continue  # <100M
+      register_artifact "xcode-derived" "Xcode DerivedData: $proj" \
+        "$(human_kb "$kb")" "$(last_modified "$proj_dir")" \
+        "rm -rf \"${proj_dir:?}\""
+    done
+  fi
+
+  # iOS Device Support (old device debugging symbols).
+  # Keep the latest version (highest iOS version, by version sort); register the rest.
+  device_support="$HOME/Library/Developer/Xcode/iOS DeviceSupport"
+  if [[ -d "$device_support" ]]; then
+    # Determine the latest version dir name so we never register it for deletion.
+    latest_ver="$(for d in "$device_support"/*/; do
+      [[ -d "$d" ]] && basename "$d"
+    done | sort -V | tail -1)"
+
+    for ver_dir in "$device_support"/*/; do
+      [[ -d "$ver_dir" ]] || continue
+      ver="$(basename "$ver_dir")"
+      [[ "$ver" == "$latest_ver" ]] && continue  # keep current/latest
+      register_artifact "xcode-device-support" "iOS DeviceSupport: $ver" \
+        "$(dir_size "$ver_dir")" "$(last_modified "$ver_dir")" \
+        "rm -rf \"${ver_dir:?}\""
+    done
+  fi
+fi
+
+# Android AVDs
+android_avd_dir="$HOME/.android/avd"
+if [[ -d "$android_avd_dir" ]]; then
+  for avd_dir in "$android_avd_dir"/*.avd; do
+    [[ -d "$avd_dir" ]] || continue
+    avd_name="$(basename "$avd_dir" .avd)"
+    register_artifact "android-avd" "Android AVD: $avd_name" \
+      "$(dir_size "$avd_dir")" "$(last_modified "$avd_dir")" \
+      "rm -rf \"${avd_dir:?}\" \"${avd_dir%.avd}.ini\""
+  done
+fi
+
+# Android SDK caches
+android_cache="$HOME/.android"
+for cache_subdir in cache .cache; do
+  cache_path="$android_cache/$cache_subdir"
+  if [[ -d "$cache_path" ]]; then
+    register_artifact "android-cache" "Android SDK cache ($cache_subdir)" \
+      "$(dir_size "$cache_path")" "$(last_modified "$cache_path")" \
+      "rm -rf \"${cache_path:?}\""
+  fi
+done
