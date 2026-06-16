@@ -1,0 +1,13 @@
+name: lge-base
+root: ~/dev/projects
+
+windows:
+  - dotfiles:
+      root: ~/dev/projects/dotfiles
+      panes:
+        - git checkout main
+
+  - leanclaw:
+      root: ~/dev/projects/clawz/leanclaw
+      panes:
+        - git checkout main

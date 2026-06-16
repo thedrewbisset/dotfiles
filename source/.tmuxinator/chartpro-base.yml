@@ -1,0 +1,8 @@
+name: chartpro-base
+root: ~/dev/projects/chartpro/repositories
+
+windows:
+  - repositories:
+      root: ~/dev/projects/chartpro/repositories
+      panes:
+        - git checkout main

@@ -1,0 +1,8 @@
+name: lge-lightyear
+root: ~/dev/projeccts/lge/lightyear-app
+
+windows:
+  - lightyear-app:
+      root: ~/dev/projects/lge/lightyear-app
+      panes:
+        - git checkout main

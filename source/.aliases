@@ -36,3 +36,4 @@ alias tma='tmux attach -t'
 # claude code
 alias claude='claude'
 alias claude-bedrock='CLAUDE_CODE_USE_BEDROCK=1 claude'
+alias mux='tmuxinator'

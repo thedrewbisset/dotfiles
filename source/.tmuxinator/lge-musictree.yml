@@ -1,0 +1,8 @@
+name: lge-musictree
+root: ~/dev/projects/lge/musictreeapp-web
+
+windows:
+  - musictreeapp-web:
+      root: ~/dev/projects/lge/musictreeapp-web
+      panes:
+        - git checkout main
