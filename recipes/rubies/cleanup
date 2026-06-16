@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Ruby cleanup scanner — sourced by bin/diskclean
+
+base_dir="${CLEANUP_BASE_DIR:-$HOME/dev}"
+
+# rbenv Ruby versions
+rbenv_versions="$HOME/.rbenv/versions"
+if [[ -d "$rbenv_versions" ]]; then
+  current_ruby="$(rbenv version-name </dev/null 2>/dev/null || true)"
+  for ver_dir in "$rbenv_versions"/*/; do
+    [[ -d "$ver_dir" ]] || continue
+    ver="$(basename "$ver_dir")"
+    label="ruby $ver (rbenv)"
+    [[ "$ver" == "$current_ruby" ]] && label="ruby $ver (rbenv) [current]"
+    register_artifact "rbenv-version" "$label" \
+      "$(dir_size "$ver_dir")" "$(last_modified "$ver_dir")" \
+      "rbenv uninstall -f $ver"
+
+    # gem cache for this version
+    gem_cache_dir="$(find "$ver_dir" -type d -name cache -path "*/gems/*/cache" 2>/dev/null | head -1)"
+    if [[ -n "$gem_cache_dir" && -d "$gem_cache_dir" ]]; then
+      gem_kb="$(dir_size_kb "$gem_cache_dir")"
+      [[ "$gem_kb" -ge 10240 ]] && \
+        register_artifact "gem-cache" "gem cache: ruby $ver" \
+          "$(human_kb "$gem_kb")" "$(last_modified "$gem_cache_dir")" \
+          "rm -rf \"${gem_cache_dir:?}\""
+    fi
+  done
+fi
+
+# bundler global cache
+for bundler_cache in "$HOME/.bundle/cache" "$HOME/Library/Caches/bundler"; do
+  if [[ -d "$bundler_cache" ]]; then
+    register_artifact "bundler-cache" "bundler cache ($bundler_cache)" \
+      "$(dir_size "$bundler_cache")" "$(last_modified "$bundler_cache")" \
+      "rm -rf \"${bundler_cache:?}\""
+  fi
+done
+
+# Project .bundle/vendor/bundle directories
+while IFS= read -r bundle_dir; do
+  [[ -d "$bundle_dir" ]] || continue
+  kb="$(dir_size_kb "$bundle_dir")"
+  [[ "$kb" -lt 10240 ]] && continue
+  rel_path="${bundle_dir#$HOME/}"
+  register_artifact "bundle-vendor" ".bundle @ ~/$rel_path" \
+    "$(human_kb "$kb")" "$(last_modified "$bundle_dir")" \
+    "rm -rf \"${bundle_dir:?}\""
+done < <(find "$base_dir" \
+  -type d -name .bundle \
+  -not -path '*/.git/*' \
+  -maxdepth 6 \
+  -prune 2>/dev/null)
+
+# Solargraph cache
+solargraph_cache="$HOME/.solargraph"
+if [[ -d "$solargraph_cache" ]]; then
+  register_artifact "solargraph-cache" "Solargraph index cache" \
+    "$(dir_size "$solargraph_cache")" "$(last_modified "$solargraph_cache")" \
+    "rm -rf \"${solargraph_cache:?}\""
+fi

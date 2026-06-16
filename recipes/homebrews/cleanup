@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Homebrew cleanup scanner — sourced by bin/diskclean
+
+if ! command -v brew &>/dev/null; then
+  return 0
+fi
+
+# Homebrew download cache
+cache_dir="$(brew --cache </dev/null 2>/dev/null)"
+if [[ -d "$cache_dir" ]]; then
+  register_artifact "brew-cache" "Homebrew download cache ($cache_dir)" \
+    "$(dir_size "$cache_dir")" "$(last_modified "$cache_dir")" \
+    "brew cleanup --prune=all"
+fi
+
+# Stale formulae/casks (brew cleanup dry-run)
+dry_run_output="$(brew cleanup --dry-run </dev/null 2>/dev/null || true)"
+free_line="$(echo "$dry_run_output" | grep -i "would free" || true)"
+if [[ -n "$free_line" ]]; then
+  free_amount="$(echo "$free_line" | grep -oE '[0-9]+(\.[0-9]+)? [KMGT]?B' | tail -1 || true)"
+  [[ -z "$free_amount" ]] && free_amount="unknown"
+  register_artifact "brew-stale" "Stale Homebrew formulae/casks (run: brew cleanup)" \
+    "$free_amount" "n/a" "brew cleanup --prune=all"
+fi
+
+# Homebrew logs
+log_dir="$(brew --prefix </dev/null 2>/dev/null)/var/log"
+if [[ -d "$log_dir" ]] && [[ -n "$(ls -A "$log_dir" 2>/dev/null)" ]]; then
+  register_artifact "brew-logs" "Homebrew logs ($log_dir)" \
+    "$(dir_size "$log_dir")" "$(last_modified "$log_dir")" \
+    "rm -rf \"${log_dir:?}\"/*"
+fi
