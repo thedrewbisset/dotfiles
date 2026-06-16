@@ -11,3 +11,4 @@ rbenv init
 rbenv install
 gem install bundler
 gem install tmuxinator
+gem install solargraph
