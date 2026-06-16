@@ -9,17 +9,25 @@
     "type": "command",
     "command": "sh ~/.claude/statusline-command.sh"
   },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": {
         "source": "github",
         "repo": "anthropics/claude-plugins-official"
       }
+    },
+    "deepgram-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "deepgram/skills"
+      }
     }
   },
-  "enabledPlugins": {
-    "swift-lsp@claude-plugins-official": true
-  },
   "alwaysThinkingEnabled": true,
+  "editorMode": "vim",
   "theme": "dark"
 }
