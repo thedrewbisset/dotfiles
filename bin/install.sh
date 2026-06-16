@@ -39,7 +39,7 @@ if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/kiex/install"
   source "$PWD/recipes/rubies/install"
   source "$PWD/recipes/python/install"
-  source "$PWD/recipes/npm/install"
+  source "$PWD/recipes/nvm/install"
   source "$PWD/recipes/bats/install"
 else
   case "$RECIPE" in
@@ -70,8 +70,8 @@ else
     python)
       source "$PWD/recipes/python/install"
       ;;
-    npm)
-      source "$PWD/recipes/npm/install"
+    nvm)
+      source "$PWD/recipes/nvm/install"
       ;;
     bats)
       source "$PWD/recipes/bats/install"

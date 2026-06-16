@@ -77,7 +77,7 @@ bin/install.sh postgresql
 bin/install.sh rubies
 bin/install.sh kiex
 bin/install.sh python
-bin/install.sh npm
+bin/install.sh nvm
 bin/install.sh bats
 bin/install.sh zsh
 ```
@@ -110,7 +110,7 @@ bin/teardown.sh claude
 bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
 bin/teardown.sh bats          # removes cloned bats from source/.bats/
 bin/teardown.sh python        # removes base-dev and base-ml conda environments
-bin/teardown.sh npm           # uninstalls global npm packages
+bin/teardown.sh nvm           # removes nvm and all installed Node.js versions
 
 # Teardown into a non-$HOME target (mirrors --target from install)
 bin/teardown.sh --target /tmp/test-home dotfiles
