@@ -40,25 +40,43 @@ Conflict handling is interactive — you'll be prompted to overwrite or skip any
 
 ### Claude Code configuration
 
-`source/.claude/` holds source-controlled Claude Code configuration:
+`~/.claude/` is Claude Code's **live home directory** — a real directory that
+holds runtime state (sessions, history, caches, hydrated plugins). We version
+only a minimal, curated subset and symlink it in; everything else stays local.
+
+`source/.claude/` holds exactly that curated set:
 
 ```
 source/.claude/
-├── CLAUDE.md           # Global user instructions
-├── settings.json       # Claude Code settings (no secrets)
-├── skills/             # Custom slash-command skills
-│   ├── patch-bundler/
-│   └── patch-bundler-poetry/
-└── plugins/            # Plugin registry config
-    ├── config.json
-    ├── installed_plugins.json
-    ├── blocklist.json
-    └── known_marketplaces.json
+├── CLAUDE.md              # Global user instructions
+├── settings.json          # Claude Code settings (no secrets)
+├── statusline-command.sh  # Custom statusline (referenced by settings.json)
+└── skills/                # Custom slash-command skills
+    ├── patch-bundler/
+    └── patch-bundler-poetry/
 ```
 
-`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other secrets. Those are stored in the macOS Keychain and resolved at runtime — see [Secrets management](#secrets-management).
+A `.gitignore` allowlist enforces this: everything under `source/.claude/` is
+ignored except the files above, so runtime state (`sessions/`, `history.jsonl`,
+`projects/`, caches, and secrets like `mcp-needs-auth-cache.json`) can never be
+committed.
 
-The `claude` recipe symlinks these into `~/.claude/`. Live Claude Code state (`history.jsonl`, `projects/`, `local/`, etc.) is never touched.
+**Plugins and marketplaces are not tracked as state files.** They're declared
+in `settings.json` via `enabledPlugins` and `extraKnownMarketplaces`; Claude
+rehydrates the actual plugin code (and the regenerated `plugins/*.json` state)
+on first run. This keeps the footprint to a single declarative source of truth.
+
+`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other
+secrets. Set those in your shell environment or a local `.env` file — never
+committed. Its `statusLine.command` references `~/.claude/statusline-command.sh`
+by a portable path (no hardcoded home), and the statusline needs `jq` (installed
+by the `homebrews` recipe).
+
+The `claude` recipe symlinks each curated file into `~/.claude/` and offers to
+install the Claude Code CLI via Anthropic's native installer. It requires
+`~/.claude/` to be a **real directory** — if it's a symlink (a legacy whole-dir
+symlink into the repo), the recipe refuses to run rather than write runtime
+state into version control.
 
 ---
 
@@ -77,7 +95,7 @@ bin/install.sh postgresql
 bin/install.sh rubies
 bin/install.sh kiex
 bin/install.sh python
-bin/install.sh npm
+bin/install.sh nvm
 bin/install.sh bats
 bin/install.sh zsh
 ```
@@ -110,7 +128,7 @@ bin/teardown.sh claude
 bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
 bin/teardown.sh bats          # removes cloned bats from source/.bats/
 bin/teardown.sh python        # removes base-dev and base-ml conda environments
-bin/teardown.sh npm           # uninstalls global npm packages
+bin/teardown.sh nvm           # removes nvm and all installed Node.js versions
 
 # Teardown into a non-$HOME target (mirrors --target from install)
 bin/teardown.sh --target /tmp/test-home dotfiles
