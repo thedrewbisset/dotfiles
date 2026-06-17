@@ -17,6 +17,27 @@ while [[ $# -gt 0 ]]; do
       TARGET_HOME="$2"
       shift 2
       ;;
+    --help|-h|help)
+      echo "Usage: bin/install.sh [--target <dir>] <recipe|all>"
+      echo ""
+      echo "Recipes:"
+      echo "  all         Run all recipes in order"
+      echo "  zsh         Install oh-my-zsh"
+      echo "  dotfiles    Symlink dotfiles to \$HOME"
+      echo "  claude      Symlink Claude Code config"
+      echo "  vim-plugins Install vim 8 plugins"
+      echo "  homebrews   Install Homebrew packages"
+      echo "  postgresql  Install PostgreSQL"
+      echo "  kiex        Install Elixir version manager"
+      echo "  rubies      Install Ruby via rbenv"
+      echo "  python      Install Python via miniconda"
+      echo "  nvm         Install Node.js via nvm"
+      echo "  bats        Install bats test framework"
+      echo ""
+      echo "Options:"
+      echo "  --target <dir>  Install to an alternate home directory"
+      exit 0
+      ;;
     *)
       RECIPE="$1"
       shift
