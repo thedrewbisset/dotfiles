@@ -7,8 +7,9 @@ services:
     volumes:
       - ${WORKTREE_PATH}:/workspace
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
-      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json
       - ${HOME}/.claude/skills:/home/dev/.claude/skills:ro
+      - ${HOME}/.claude/workflows:/home/dev/.claude/workflows:ro
     environment:
       - AWS_BEARER_TOKEN_BEDROCK
     stdin_open: true
@@ -22,8 +23,9 @@ services:
     volumes:
       - ${WORKTREE_PATH}:/workspace
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
-      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json
       - ${HOME}/.claude/skills:/home/dev/.claude/skills:ro
+      - ${HOME}/.claude/workflows:/home/dev/.claude/workflows:ro
     environment:
       - AWS_BEARER_TOKEN_BEDROCK
     stdin_open: true
@@ -37,8 +39,9 @@ services:
     volumes:
       - ${WORKTREE_PATH}:/workspace
       - ${HOME}/.claude/CLAUDE.md:/home/dev/.claude/CLAUDE.md:ro
-      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json:ro
+      - ${HOME}/.claude/settings.json:/home/dev/.claude/settings.json
       - ${HOME}/.claude/skills:/home/dev/.claude/skills:ro
+      - ${HOME}/.claude/workflows:/home/dev/.claude/workflows:ro
     environment:
       - AWS_BEARER_TOKEN_BEDROCK
     stdin_open: true
