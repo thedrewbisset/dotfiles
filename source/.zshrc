@@ -170,23 +170,19 @@ colima-init() {
 # Claude code functions
 # Claude Code - Max subscription (personal/hobby)
 claude-lge() {
-  unset CLAUDE_CODE_USE_BEDROCK
-  unset AWS_REGION
-  unset ANTHROPIC_MODEL
-  unset ANTHROPIC_SMALL_FAST_MODEL
   echo "✅ Claude Code → Anthropic Max (personal)"
   claude "$@"
 }
 
 # Claude Code - AWS Bedrock (ChartPro / professional)
 claude-chartpro() {
-  export CLAUDE_CODE_USE_BEDROCK=1
-  export AWS_REGION=us-west-2
-  export AWS_PROFILE=bedrock
-  export AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)"
-  export ANTHROPIC_MODEL='us.anthropic.claude-sonnet-4-6'
-  export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
   echo "✅ Claude Code → AWS Bedrock (work)"
+  CLAUDE_CODE_USE_BEDROCK=1 \
+  AWS_REGION=us-west-2 \
+  AWS_PROFILE=bedrock \
+  AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)" \
+  ANTHROPIC_MODEL='us.anthropic.claude-sonnet-5' \
+  ANTHROPIC_DEFAULT_HAIKU_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0' \
   claude "$@"
 }
 

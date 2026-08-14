@@ -269,8 +269,8 @@ The script:
 The bearer token is passed into the container at runtime via environment variable — never stored in the image or committed. Source it from the Keychain (see [Secrets management](#secrets-management)) so it's never typed in plaintext:
 
 ```bash
-export AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)"
-bin/claude-worktree ~/dev/projects/my-app
+AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)" \
+  bin/claude-worktree ~/dev/projects/my-app
 ```
 
 ### Building images manually
