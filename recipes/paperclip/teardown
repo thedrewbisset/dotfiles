@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+dir=$PWD
+paperclip_source="$dir/source/.paperclip"
+paperclip_target="${TARGET_HOME:-$HOME}/.paperclip"
+
+echo "Tearing down Paperclip config symlinks from $paperclip_target..."
+
+shopt -s nullglob dotglob
+paperclip_config_files=("$paperclip_source"/*)
+shopt -u nullglob dotglob
+
+for config_path in "${paperclip_config_files[@]}"; do
+  config_name=$(basename "$config_path")
+  [ "$config_name" = ".keep" ] && continue
+  target_path="$paperclip_target/$config_name"
+  if [ -L "$target_path" ]; then
+    rm "$target_path"
+    echo "Removed symlink: $target_path"
+  fi
+done
+
+# The CLI, the LaunchAgent and the instance data are deliberately left alone:
+# instance data (databases, uploads, secrets, workspaces) survives an uninstall
+# by design, and removing it is not this script's call.
+echo ""
+echo "Left in place. To remove the rest yourself:"
+echo "  paperclipai service uninstall   Remove the LaunchAgent"
+echo "  paperclipai uninstall           Remove CLI payloads (keeps instance data)"
+echo "  rm -rf ~/.paperclip             Destroys databases, uploads and secrets too"

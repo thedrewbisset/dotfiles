@@ -98,7 +98,34 @@ bin/install.sh python
 bin/install.sh nvm
 bin/install.sh bats
 bin/install.sh zsh
+
+# Opt-in recipes (deliberately excluded from `all`)
+bin/install.sh paperclip
 ```
+
+### Paperclip
+
+[Paperclip](https://github.com/paperclipai/paperclip) is a self-hosted control plane for AI agents. The recipe provisions the CLI and links curated config; it never runs onboarding for you.
+
+- **Provisioning** — checks for Node.js >= 20 (run `bin/install.sh nvm` first if missing), then prompts before running `npx --yes paperclipai@$PAPERCLIP_VERSION install --version $PAPERCLIP_VERSION`. CLI payloads land in `~/.paperclip/cli/`, with a stable shim at `~/.local/bin/paperclipai` (already on `PATH` via `.zshrc`). Upgrades are the CLI's job: `paperclipai update`, or `paperclipai update --rollback`.
+
+- **Version pin** — `PAPERCLIP_VERSION` at the top of the recipe pins a *canary* build. The managed CLI store, the background service and `update --rollback` don't exist in the stable tag yet: `@latest` is 2026.722.0 and has no `install`, `service`, `update` or `uninstall` commands, even though Paperclip's own website installer and docs are written against them. Canary publishes several times a day, so the pin is what keeps two machines reproducible. Drop it for `@latest` once these commands reach stable:
+
+  ```bash
+  npx --yes paperclipai@latest --help | grep -E '^\s+(install|service)\b'
+  ```
+
+  The recipe also skips Paperclip's documented bootstrap (`https://paperclip.ing/install.sh`). That script verifies the platform, ensures Node.js >= 20, then makes exactly the `npx` call above — but it uses bash 4 lowercase expansion (`${value,,}`) and macOS is frozen on bash 3.2 for GPLv3 licensing reasons, so it aborts before doing any work. It would fail on Linux too, since it resolves the package at `@latest`, where the `install` command it invokes doesn't exist yet.
+- **Configuration** — `~/.paperclip` is Paperclip's live home: embedded Postgres, uploads, logs, secrets and agent workspaces all live under `instances/`. Like `~/.claude`, it stays a real directory and the recipe refuses to run if it has been replaced by a symlink. Only curated, secret-free files from `source/.paperclip/` are symlinked in, and `.gitignore` denies that directory by default so a stray API key can't be committed by accident.
+- **Service** — probes `paperclipai --help` for a `service` command before offering anything, then prompts before installing the macOS LaunchAgent (`paperclipai service install`), which serves the dashboard on `http://localhost:3100` and starts on login. On a build without it, the recipe says so and points at `paperclipai run` instead of erroring mid-run.
+
+- **Service PATH patch** — launchd hands a LaunchAgent a bare `PATH` of `/usr/bin:/bin:/usr/sbin:/sbin`, and Paperclip's generated plist adds none. Agent adapters spawn helpers like `claude-agent-acp` whose shebang is `#!/usr/bin/env node`, so with node anywhere else (e.g. `/usr/local/bin/node`) every agent run fails with `env: node: No such file or directory` — while the service itself stays healthy, since launchd starts it by absolute path. The recipe patches `PATH` into the plist's `EnvironmentVariables` and reloads. Two traps it works around:
+
+  - `paperclipai service restart` **regenerates the plist** and silently drops the patch. Re-run `bin/install.sh paperclip` to repair; the patch is idempotent and only reloads when it detects drift.
+  - launchd re-reads `EnvironmentVariables` only on a full `launchctl bootout` + `bootstrap`. A hot restart keeps the old environment and makes the patch look like it failed.
+- **Onboarding** — run `paperclipai onboard` yourself. It is interactive and writes secrets, so it is not automated here.
+
+To version a piece of config as it stabilises: move the file into `source/.paperclip/`, allowlist it in `.gitignore`, and re-run `bin/install.sh paperclip` to link it back.
 
 ### Test against a temp directory
 
@@ -129,6 +156,7 @@ bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
 bin/teardown.sh bats          # removes cloned bats from source/.bats/
 bin/teardown.sh python        # removes base-dev and base-ml conda environments
 bin/teardown.sh nvm           # removes nvm and all installed Node.js versions
+bin/teardown.sh paperclip     # unlinks config; leaves the CLI, service and instance data
 
 # Teardown into a non-$HOME target (mirrors --target from install)
 bin/teardown.sh --target /tmp/test-home dotfiles

@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+set -e
+
+source 'bin/lib/tools'
+
+dir=$PWD
+paperclip_source="$dir/source/.paperclip"
+paperclip_target="${TARGET_HOME:-$HOME}/.paperclip"
+
+MIN_NODE_MAJOR=20
+
+# Pinned to a canary build on purpose. The managed CLI store, the background
+# service and 'update --rollback' -- the whole install story this recipe is
+# built on, and the one paperclip.ing/install.sh and docs.paperclip.ing both
+# document -- do not exist in the stable tag yet (@latest is 2026.722.0 and has
+# no install/service/update/uninstall commands). Canary publishes several times
+# a day, so pinning is what keeps two machines reproducible.
+#
+# Drop the pin and switch to @latest once 'install' and 'service' reach stable:
+#   npx --yes paperclipai@latest --help | grep -E '^\s+(install|service)\b'
+PAPERCLIP_VERSION="2026.811.0-canary.3"
+
+echo "📎 Paperclip"
+echo "============"
+
+# ~/.paperclip must be a REAL directory. Paperclip keeps its embedded Postgres
+# data, uploads, logs, secrets and agent workspaces under instances/ alongside
+# the config we actually want to version. Symlinking the whole directory into
+# the repo would drag runtime state and secrets in with it -- the same mistake
+# the claude recipe was rewritten to avoid. Only curated files from
+# source/.paperclip get linked in.
+if [ -L "$paperclip_target" ]; then
+  echo "ERROR: $paperclip_target is a symlink -> $(readlink "$paperclip_target")" >&2
+  echo "It must be a real directory so Paperclip's runtime state and secrets stay out of the repo." >&2
+  echo "Migrate first (move live state into a real ~/.paperclip, remove the symlink)," >&2
+  echo "then re-run this recipe to link the curated config files." >&2
+  return 1 2>/dev/null || exit 1
+fi
+
+# --- Provisioning -----------------------------------------------------------
+
+if ! command -v node &>/dev/null; then
+  echo "❌ Node.js not found. Paperclip requires Node.js >= $MIN_NODE_MAJOR." >&2
+  echo "   Run 'bin/install.sh nvm' first." >&2
+  return 1 2>/dev/null || exit 1
+fi
+
+node_major=$(node --version | sed 's/^v//' | cut -d. -f1)
+if [ "$node_major" -lt "$MIN_NODE_MAJOR" ]; then
+  echo "❌ Node.js $(node --version) is too old. Paperclip requires >= $MIN_NODE_MAJOR." >&2
+  echo "   Run 'bin/install.sh nvm' first." >&2
+  return 1 2>/dev/null || exit 1
+fi
+echo "✓ Node.js $(node --version)"
+
+# The stable CLI shim lands in ~/.local/bin, which .zshrc already puts on PATH.
+# Look there too, since the shell running this recipe may predate that export.
+paperclip_bin=""
+if command -v paperclipai &>/dev/null; then
+  paperclip_bin="$(command -v paperclipai)"
+elif [ -x "${TARGET_HOME:-$HOME}/.local/bin/paperclipai" ]; then
+  paperclip_bin="${TARGET_HOME:-$HOME}/.local/bin/paperclipai"
+fi
+
+if [ -n "$paperclip_bin" ]; then
+  installed_version="$("$paperclip_bin" --version 2>/dev/null || echo 'unknown')"
+  echo "✓ Paperclip CLI already installed ($installed_version)"
+  if [ "$installed_version" != "$PAPERCLIP_VERSION" ]; then
+    echo "  ⚠️  Recipe pins $PAPERCLIP_VERSION. To match it:"
+    echo "     paperclipai update --version $PAPERCLIP_VERSION"
+    echo "     (or bump PAPERCLIP_VERSION in this recipe, then reinstall)"
+  fi
+  unset installed_version
+else
+  echo ""
+  echo "Paperclip CLI not found. The managed install will:"
+  echo "  • install CLI payloads under ~/.paperclip/cli/"
+  echo "  • place a stable shim at ~/.local/bin/paperclipai"
+  echo "  • pin version $PAPERCLIP_VERSION"
+  echo "Onboarding stays a separate, explicit step."
+  echo ""
+  echo "If it offers to update your shell PATH, DECLINE: ~/.zshrc is a symlink"
+  echo "into this repo, and source/.zshrc already exports ~/.local/bin."
+  read -r -p "Install the Paperclip CLI? [y/N] " _paperclip_response
+  if [[ "$_paperclip_response" =~ ^[Yy]$ ]]; then
+    # Invoke the CLI's own installer directly rather than the vendor bootstrap
+    # at https://paperclip.ing/install.sh. That script only verifies the
+    # platform and Node.js >= 20 -- both done above -- before delegating here,
+    # and it is broken three ways: it needs bash 4 (`${value,,}` at line 57;
+    # macOS is frozen on bash 3.2 for GPLv3 reasons), it resolves the package
+    # at @latest where 'install' does not exist, and it passes a --no-prompt
+    # flag the command has never accepted.
+    #
+    # --yes is deliberately NOT passed. It consents to "supported shell PATH
+    # updates" without asking, and ~/.zshrc is a symlink into source/.zshrc --
+    # so an unattended PATH append would write into version control. The edit
+    # is redundant anyway: source/.zshrc already exports ~/.local/bin. Decline
+    # the PATH prompt if the installer offers it.
+    #
+    # The npx spec picks which CLI runs; --version pins what lands in the
+    # managed store. Both are the pin so they cannot disagree.
+    npx --yes "paperclipai@$PAPERCLIP_VERSION" install --version "$PAPERCLIP_VERSION"
+
+    if [ -x "${TARGET_HOME:-$HOME}/.local/bin/paperclipai" ]; then
+      paperclip_bin="${TARGET_HOME:-$HOME}/.local/bin/paperclipai"
+      echo "✓ Paperclip CLI installed"
+    else
+      echo "⚠️  Installer finished but ~/.local/bin/paperclipai was not found." >&2
+      echo "   Open a new shell and check 'command -v paperclipai'." >&2
+    fi
+  else
+    echo "⏭  Skipping Paperclip CLI installation."
+  fi
+  unset _paperclip_response
+fi
+
+# --- Configuration ----------------------------------------------------------
+
+# Curated, secret-free config lives in source/.paperclip and is symlinked into
+# the live directory. Everything else there (config.json fragments holding API
+# keys, .env, context.json, instances/) stays untracked local state.
+#
+# Nothing is versioned yet: which files are safe and useful to track is only
+# knowable after 'paperclipai onboard' has produced a real ~/.paperclip. To
+# promote a file, move it into source/.paperclip/, allowlist it in .gitignore,
+# and re-run this recipe.
+mkdir -p "$paperclip_target"
+
+shopt -s nullglob dotglob
+paperclip_config_files=("$paperclip_source"/*)
+shopt -u nullglob dotglob
+
+linked_any=0
+for config_path in "${paperclip_config_files[@]}"; do
+  config_name=$(basename "$config_path")
+  [ "$config_name" = ".keep" ] && continue
+  set_link "$config_path" "$paperclip_target/$config_name"
+  linked_any=1
+done
+
+if [ "$linked_any" -eq 0 ]; then
+  echo "ℹ️  No curated config in source/.paperclip yet -- nothing to link."
+else
+  echo "✓ Paperclip config linked."
+fi
+
+# --- Service ----------------------------------------------------------------
+
+# launchd gives a LaunchAgent a bare PATH of /usr/bin:/bin:/usr/sbin:/sbin, and
+# Paperclip's generated plist sets no PATH of its own. Agent adapters spawn
+# helpers like claude-agent-acp, whose shebang is `#!/usr/bin/env node` -- so
+# with node installed anywhere else (here: /usr/local/bin/node), every agent run
+# dies with "env: node: No such file or directory" while the server itself stays
+# healthy, because launchd starts it by absolute path.
+#
+# Two traps worth knowing:
+#   1. 'paperclipai service restart' REGENERATES the plist and silently drops
+#      this patch. Reload with launchctl bootout/bootstrap instead. Any
+#      'paperclipai service' lifecycle command may revert it -- re-run this
+#      recipe to repair.
+#   2. launchd only re-reads EnvironmentVariables on a full bootout/bootstrap.
+#      A hot restart keeps the old environment and looks like the patch failed.
+paperclip_ensure_service_path() {
+  local label="ing.paperclip.paperclipai"
+  local plist="${TARGET_HOME:-$HOME}/Library/LaunchAgents/$label.plist"
+  local want="/usr/local/bin:${TARGET_HOME:-$HOME}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+  [ -f "$plist" ] || { echo "ℹ️  No LaunchAgent plist at $plist -- skipping PATH patch."; return 0; }
+
+  local current
+  current=$(/usr/libexec/PlistBuddy -c "Print :EnvironmentVariables:PATH" "$plist" 2>/dev/null || true)
+  if [ "$current" = "$want" ]; then
+    echo "✓ Service PATH already set"
+    return 0
+  fi
+
+  echo "Patching service PATH so adapters can resolve node..."
+  /usr/libexec/PlistBuddy -c "Delete :EnvironmentVariables:PATH" "$plist" 2>/dev/null || true
+  /usr/libexec/PlistBuddy -c "Add :EnvironmentVariables:PATH string $want" "$plist"
+  if ! plutil -lint "$plist" >/dev/null; then
+    echo "⚠️  Patched plist failed validation; not reloading. Inspect $plist" >&2
+    return 1
+  fi
+
+  # Full reload: a hot restart would not pick up the new environment.
+  launchctl bootout "gui/$UID/$label" 2>/dev/null || true
+  sleep 2
+  launchctl bootstrap "gui/$UID" "$plist" 2>/dev/null || true
+  echo "✓ Service PATH patched and reloaded"
+}
+
+if [ -n "$paperclip_bin" ]; then
+  # Probe before offering. 'service' does not exist in every release channel --
+  # it is absent from stable as of 2026.722.0 -- and a recipe that assumes a
+  # subcommand exists dies mid-run when the channel or the pin moves.
+  if ! "$paperclip_bin" --help 2>/dev/null | grep -qE '^[[:space:]]+service\b'; then
+    echo ""
+    echo "ℹ️  This build ($("$paperclip_bin" --version 2>/dev/null || echo 'unknown')) has no 'service' command,"
+    echo "   so there is no background service to install. Run Paperclip in the"
+    echo "   foreground with 'paperclipai run'."
+  elif "$paperclip_bin" service status &>/dev/null; then
+    echo "✓ Paperclip service already installed"
+    paperclip_ensure_service_path
+  else
+    echo ""
+    echo "Paperclip can run as a macOS LaunchAgent (restarts on crash, starts on login,"
+    echo "serves the dashboard on http://localhost:3100)."
+    read -r -p "Install the Paperclip service? [y/N] " _paperclip_service_response
+    if [[ "$_paperclip_service_response" =~ ^[Yy]$ ]]; then
+      "$paperclip_bin" service install
+      echo "✓ Paperclip service installed"
+      paperclip_ensure_service_path
+    else
+      echo "⏭  Skipping service installation ('paperclipai service install' when you want it)."
+    fi
+    unset _paperclip_service_response
+  fi
+fi
+
+echo ""
+echo "✅ Paperclip recipe complete!"
+echo ""
+echo "Next steps:"
+echo "  • paperclipai onboard          Interactive setup (database + first company)"
+echo "  • paperclipai doctor           Diagnose instance health"
+echo "  • paperclipai configure        Change settings after onboarding"
+echo "  • paperclipai service status   Check the background service"
+echo ""
+echo "Onboarding is interactive and writes secrets, so it is deliberately not"
+echo "automated here. Run it yourself, then promote any config worth versioning"
+echo "into source/.paperclip and re-run 'bin/install.sh paperclip'."

@@ -26,3 +26,12 @@ source/.claude/*
 !source/.claude/settings.json
 !source/.claude/statusline-command.sh
 !source/.claude/skills/
+
+# --- Paperclip config (source/.paperclip) ---
+# ~/.paperclip is Paperclip's live home (a real directory) holding embedded
+# Postgres data, uploads, logs, secrets and agent workspaces under instances/.
+# Only curated, secret-free config is symlinked in from here. Deny by default
+# and allowlist each file as it is promoted, so an API key never lands in the
+# repo by accident.
+source/.paperclip/*
+!source/.paperclip/.keep
