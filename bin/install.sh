@@ -33,6 +33,7 @@ while [[ $# -gt 0 ]]; do
       echo "  python      Install Python via miniconda"
       echo "  nvm         Install Node.js via nvm"
       echo "  bats        Install bats test framework"
+      echo "  paperclip   Install Paperclip agent control plane (not in 'all')"
       echo ""
       echo "Options:"
       echo "  --target <dir>  Install to an alternate home directory"
@@ -96,6 +97,11 @@ else
       ;;
     bats)
       source "$PWD/recipes/bats/install"
+      ;;
+    # Opt-in only, deliberately absent from 'all': Paperclip is a stateful
+    # service with its own API-key config, not baseline machine setup.
+    paperclip)
+      source "$PWD/recipes/paperclip/install"
       ;;
     "")
       echo "Usage: bin/install.sh [--target <dir>] <recipe|all>"

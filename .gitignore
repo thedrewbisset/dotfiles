@@ -26,3 +26,23 @@ source/.claude/*
 !source/.claude/settings.json
 !source/.claude/statusline-command.sh
 !source/.claude/skills/
+
+# --- Paperclip config (source/.paperclip) ---
+# ~/.paperclip is Paperclip's live home (a real directory) holding embedded
+# Postgres data, uploads, logs, secrets and agent workspaces under instances/.
+# Only curated, secret-free config is symlinked in from here. Deny by default
+# and allowlist each file as it is promoted, so an API key never lands in the
+# repo by accident.
+source/.paperclip/*
+!source/.paperclip/.keep
+
+# --- tmuxinator layouts (source/.tmuxinator) ---
+# Session layouts enumerate the repositories of whichever client or employer
+# the machine is set up for, which is exactly the inventory a public dotfiles
+# repo should not publish. Deny by default like the two directories above:
+# a new layout stays local unless it is deliberately allowlisted here.
+#
+# This does NOT untrack the layouts already committed -- .gitignore has no
+# effect on tracked paths, and those names are public in this repo's history
+# regardless. It only stops the set from growing.
+source/.tmuxinator/*

@@ -39,7 +39,7 @@ git -C "$REPO_PATH" worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME"
 
 echo "Launching Claude Code container ($PLATFORM)..."
 WORKTREE_PATH="$WORKTREE_PATH" \
-  docker compose -f "$DOTFILES_DIR/recipes/claude/docker/docker-compose.yml" \
+  docker-compose -f "$DOTFILES_DIR/recipes/claude/docker/docker-compose.yml" \
   run --rm "$PLATFORM"
 
 REMOVE_WORKTREE=""
