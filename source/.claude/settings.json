@@ -4,14 +4,18 @@
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "4096",
     "MAX_THINKING_TOKENS": "1024"
   },
-  "model": "opus",
+  "model": "Opus",
+  "modelOverrides": {
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5-20251001"
+  },
   "statusLine": {
     "type": "command",
     "command": "sh ~/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true
+    "clangd-lsp@claude-plugins-official": true,
+    "deepgram@deepgram-agent-skills": true
   },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
@@ -28,6 +32,9 @@
     }
   },
   "alwaysThinkingEnabled": true,
+  "tui": "default",
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
   "editorMode": "vim",
-  "theme": "dark"
+  "switchModelsOnFlag": false
 }
