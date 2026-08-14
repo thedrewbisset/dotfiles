@@ -121,11 +121,9 @@ Watch for these phrases - they often signal unverified claims:
 # CLI and Troubleshooting Guidelines
 
 ## AWS CLI Execution Policy
-1. **Read-only operations across ALL environments**: You MAY run AWS CLI commands directly using readonly profiles:
-   - `--profile <prod-profile>` for production
-   - `--profile <staging-profile>` for staging
-   - `--profile <dev-profile>` for development
-   - `--profile <shared-profile>` for shared assets/CDK account
+1. **Read-only operations**: You MAY run AWS CLI commands directly, but ONLY with a read-only profile the user has named in this conversation. Do NOT guess a profile name or infer one from an environment name — profile naming is per-organization and not derivable. Ask: "Which read-only profile should I use for <environment>?"
+   - Some profiles are read-only by grant rather than by name. If the user says a profile is developer-tier or otherwise write-capable, keep strictly to read calls with it.
+   - Run `aws configure list-profiles` to discover what is actually configured rather than assuming.
 
 2. **Admin/write operations**: ALWAYS compose commands for the user with placeholder `--profile <admin-profile>` and ask for the specific admin profile name
 
@@ -140,7 +138,7 @@ Watch for these phrases - they often signal unverified claims:
    - **STOP and ASK** - Don't assume empty results mean nothing exists
    - The query might be using wrong names/filters
    - Ask user for actual resource names rather than investigating further
-   - For the infrastructure repo: Refer to `docs/reference/aws-resource-reference.md` which includes known resource names/patterns
+   - If the repo ships a resource reference (e.g. `docs/reference/aws-resource-reference.md`), read it before guessing
 
 5. Use macOS-compatible command syntax (e.g., date -v-2H +%s for date operations)
 
