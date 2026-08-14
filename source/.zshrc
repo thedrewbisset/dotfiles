@@ -110,6 +110,11 @@ command -v rbenv &>/dev/null && eval "$(rbenv init - zsh)"
 test -s "$HOME/.kiex/scripts/kiex" && source "$HOME/.kiex/scripts/kiex"
 
 # >>> conda initialize >>>
+# Hand-maintained, NOT managed by 'conda init'. Re-running `conda init zsh`
+# rewrites this block with a literal home directory and drops the guard --
+# revert it if that happens. This file is symlinked to $HOME/.zshrc on every
+# machine, so it must not hardcode a username, and it must be a no-op where
+# miniconda is not installed.
 if [ -f "$HOME/miniconda3/bin/conda" ]; then
   __conda_setup="$("$HOME/miniconda3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
   if [ $? -eq 0 ]; then
