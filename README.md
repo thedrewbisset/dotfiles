@@ -125,7 +125,11 @@ bin/install.sh paperclip
   - launchd re-reads `EnvironmentVariables` only on a full `launchctl bootout` + `bootstrap`. A hot restart keeps the old environment and makes the patch look like it failed.
 - **Onboarding** — run `paperclipai onboard` yourself. It is interactive and writes secrets, so it is not automated here.
 
-To version a piece of config as it stabilises: move the file into `source/.paperclip/`, allowlist it in `.gitignore`, and re-run `bin/install.sh paperclip` to link it back.
+- **Backup & restore** — see [`recipes/paperclip/BACKUP-RESTORE.md`](recipes/paperclip/BACKUP-RESTORE.md). Paperclip backs up hourly but ships **no restore command**, and its docs cover neither restore nor machine migration, so that file is a playbook rather than a script. The one thing to know without reading it: `secrets/master.key` decrypts every secret in the database, and a dump without it is unrestorable.
+
+- **Org export** — `recipes/paperclip/export-company` materializes the company as a portable file tree (`COMPANY.md`, per-agent `AGENTS/HEARTBEAT/SOUL/TOOLS.md`, `SKILL.md` files) into `recipes/paperclip/company/<slug>/`, via Paperclip's own `company export:preview`. Gitignored by default: it carries no API keys, but it is every agent prompt you have written. `paperclipai company import:apply` reverses it.
+
+**Nothing is versioned in `source/.paperclip/`, by design.** That stub was built on the assumption that a curated slice of `~/.paperclip` would be worth tracking; inspecting a live instance showed otherwise. `config.json` embeds absolute `/Users/...` paths and is rewritten by `paperclipai configure`; `.env` holds `PAPERCLIP_AGENT_JWT_SECRET`; and `companies/`, `skills/` and `projects/` are UUID-keyed materializations of database rows, meaningless on an instance with different UUIDs. The portable state is the org export above; the recoverable state is the database. The symlink mechanism stays in the recipe in case a future version grows a genuinely portable config file — if it does, drop the file into `source/.paperclip/`, allowlist it in `.gitignore`, and re-run `bin/install.sh paperclip`.
 
 ### Test against a temp directory
 
