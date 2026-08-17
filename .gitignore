@@ -36,6 +36,11 @@ source/.claude/*
 source/.paperclip/*
 !source/.paperclip/.keep
 
+# Company exports produced by recipes/paperclip/export-company. Carries no API
+# keys, but it is the full org definition -- every agent prompt, SOUL.md and
+# heartbeat. Kept local deliberately; drop this line to start versioning it.
+recipes/paperclip/company/
+
 # --- tmuxinator layouts (source/.tmuxinator) ---
 # Session layouts enumerate the repositories of whichever client or employer
 # the machine is set up for, which is exactly the inventory a public dotfiles

@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -e
+
+# Materialize a Paperclip company's portable export to disk.
+#
+# `paperclipai company export:preview` returns the whole export inline as JSON
+# -- there is no --out flag -- so this writes the files out itself. The result
+# is the declarative half of a Paperclip instance: COMPANY.md, .paperclip.yaml,
+# per-agent AGENTS/HEARTBEAT/SOUL/TOOLS markdown, and SKILL.md files. Agent
+# entries carry role, adapterType, adapterConfig, reportsToSlug and permissions,
+# so `paperclipai company import:apply` can rebuild the org elsewhere.
+#
+# Output is gitignored by default (see .gitignore). Review before sharing: these
+# are your agent prompts, and while the export carries no API keys, it does
+# describe your org in full.
+#
+# Usage:
+#   recipes/paperclip/export-company [company-id] [output-dir]
+#
+# With no company id, the only company is used; if several exist, it lists them
+# and stops rather than guessing.
+
+usage() {
+  echo "Usage: recipes/paperclip/export-company [company-id] [output-dir]"
+  echo "  company-id   defaults to the sole company on this instance"
+  echo "  output-dir   defaults to recipes/paperclip/company/<rootPath>"
+}
+
+case "${1:-}" in -h|--help|help) usage; exit 0 ;; esac
+
+paperclip_bin=""
+if command -v paperclipai &>/dev/null; then
+  paperclip_bin="$(command -v paperclipai)"
+elif [ -x "$HOME/.local/bin/paperclipai" ]; then
+  paperclip_bin="$HOME/.local/bin/paperclipai"
+else
+  echo "❌ paperclipai not found. Run 'bin/install.sh paperclip' first." >&2
+  exit 1
+fi
+
+company_id="${1:-}"
+out_root="${2:-}"
+
+if [ -z "$company_id" ]; then
+  echo "Resolving company..."
+  company_json=$("$paperclip_bin" company list --json 2>/dev/null || true)
+  company_id=$(printf '%s' "$company_json" | node -e '
+    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+      let d;try{d=JSON.parse(s)}catch{process.exit(0)}
+      const items=Array.isArray(d)?d:(d.companies||d.items||[]);
+      if(items.length===1)process.stdout.write(items[0].id||"");
+      else if(items.length>1){
+        process.stderr.write("Multiple companies -- pass one explicitly:\n");
+        for(const c of items)process.stderr.write(`  ${c.id}  ${c.name}\n`);
+      }
+    });')
+  if [ -z "$company_id" ]; then
+    echo "❌ Could not resolve a single company id." >&2
+    exit 1
+  fi
+fi
+
+echo "Exporting company $company_id..."
+# An empty payload takes the export defaults: company + agents + skills, without
+# projects or issues (those are operational history, not org definition).
+export_json=$("$paperclip_bin" company export:preview "$company_id" --payload-json '{}' --json)
+
+repo_root="$PWD"
+printf '%s' "$export_json" | OUT_ROOT="$out_root" REPO_ROOT="$repo_root" node -e '
+const fs=require("fs"),path=require("path");
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+  const d=JSON.parse(s);
+  const files=d.files||{};
+  const root=process.env.OUT_ROOT ||
+    path.join(process.env.REPO_ROOT,"recipes/paperclip/company",d.rootPath||"company");
+  fs.mkdirSync(root,{recursive:true});
+  let text=0,binary=0;
+  for(const [rel,val] of Object.entries(files)){
+    const dest=path.join(root,rel);
+    fs.mkdirSync(path.dirname(dest),{recursive:true});
+    if(typeof val==="string"){ fs.writeFileSync(dest,val); text++; }
+    else if(val&&val.encoding==="base64"&&typeof val.data==="string"){
+      fs.writeFileSync(dest,Buffer.from(val.data,"base64")); binary++;
+    } else {
+      // Unknown shape: keep it rather than dropping it silently.
+      fs.writeFileSync(dest+".json",JSON.stringify(val,null,2)); text++;
+    }
+  }
+  // The manifest is the structured half -- agent roles, adapterConfig, org
+  // edges. Keep it beside the files so a diff shows config changes too.
+  fs.writeFileSync(path.join(root,"manifest.json"),
+    JSON.stringify(d.manifest,null,2)+"\n");
+  const c=d.counts||{};
+  console.log(`✓ Wrote ${text} text + ${binary} binary file(s) to ${root}`);
+  console.log(`  agents=${c.agents??"?"} skills=${c.skills??"?"} projects=${c.projects??"?"} issues=${c.issues??"?"}`);
+  for(const w of (d.warnings||[])) console.log(`  ⚠️  ${w}`);
+});'
+
+echo ""
+echo "Review before sharing -- this is your full org definition (no API keys, but"
+echo "every agent prompt). Rebuild elsewhere with:"
+echo "  paperclipai company import:preview <companyId> --payload-json ..."
+echo "  paperclipai company import:apply   <companyId> --payload-json ..."
