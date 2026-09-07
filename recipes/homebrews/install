@@ -22,6 +22,7 @@ sip awscli
 sip colima
 sip coreutils
 sip ctags
+sip d2
 sip docker
 sip docker-compose
 sip elixir-ls
