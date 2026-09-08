@@ -25,6 +25,12 @@ for dotfile in $dotfiles; do
   # oh-my-zsh is a runtime installation managed by the oh-my-zsh recipe, not a dotfile to symlink
   [[ "$dotfile" == ".oh-my-zsh" ]] && continue
 
+  # ~/.claude is Claude Code's live home: a real directory holding runtime state
+  # (sessions, history, projects) alongside config that is managed outside this
+  # repo. Symlinking the whole directory would replace that state and revert the
+  # managed config. Left alone deliberately.
+  [[ "$dotfile" == ".claude" ]] && continue
+
   # Special handling for SSH directory
   if [[ "$dotfile" == ".ssh" ]]; then
     # Create SSH directory with correct permissions only if it doesn't exist
