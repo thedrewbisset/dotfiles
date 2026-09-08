@@ -1,0 +1,12 @@
+# Per-directory git identity, selected by an includeIf rule in .gitconfig.
+#
+# Copy to .gitconfig-lge (without .example) and fill in. The real file is
+# gitignored: a working identity has to hold a real name and address, and this
+# repository is public.
+
+[user]
+  name = <github-username>
+  email = <email>
+
+[core]
+  sshCommand = ssh -i ~/.ssh/<key-name> -o IdentitiesOnly=yes

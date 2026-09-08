@@ -1,0 +1,9 @@
+# Default git identity, included from .gitconfig.
+#
+# Copy to .gitconfig-personal (without .example) and fill in. The real file is
+# gitignored: a working identity has to hold a real name and address, and this
+# repository is public.
+
+[user]
+  name = <github-username>
+  email = <email>
