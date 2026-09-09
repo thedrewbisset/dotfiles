@@ -20,7 +20,6 @@ done
 
 if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/dotfiles/teardown"
-  source "$PWD/recipes/claude/teardown"
   source "$PWD/recipes/vim-plugins/teardown"
   source "$PWD/recipes/bats/teardown"
   source "$PWD/recipes/python/teardown"
@@ -37,7 +36,10 @@ else
       source "$PWD/recipes/dotfiles/teardown"
       ;;
     claude)
-      source "$PWD/recipes/claude/teardown"
+      # recipes/claude installs the Claude Code CLI and symlinks nothing, so
+      # there is no teardown. Agent configuration is managed outside this repo
+      # and torn down by its own installer.
+      echo "Nothing to tear down: recipes/claude does not symlink any config."
       ;;
     vim-plugins)
       source "$PWD/recipes/vim-plugins/teardown"
