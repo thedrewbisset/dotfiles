@@ -34,47 +34,19 @@ Conflict handling is interactive — you'll be prompted to overwrite or skip any
 
 **Special cases:**
 - `.ssh/` — the directory is created with correct permissions (`700`); only `.ssh/config` is symlinked (private keys are never committed)
-- `.claude/` — managed by the `claude` recipe (see below)
+- `.claude/` — skipped entirely; agent configuration is managed outside this repo (see below)
 
 ### Claude Code configuration
 
-`~/.claude/` is Claude Code's **live home directory** — a real directory that
-holds runtime state (sessions, history, caches, hydrated plugins). We version
-only a minimal, curated subset and symlink it in; everything else stays local.
+**This repo no longer manages `~/.claude`.** Agent configuration — instructions, rules,
+skills and settings — lives in its own version-controlled repository with its own
+installer, which symlinks it into `~/.claude/`.
 
-`source/.claude/` holds exactly that curated set:
-
-```
-source/.claude/
-├── CLAUDE.md              # Global user instructions
-├── settings.json          # Claude Code settings (no secrets)
-├── statusline-command.sh  # Custom statusline (referenced by settings.json)
-└── skills/                # Custom slash-command skills
-    ├── patch-bundler/
-    └── patch-bundler-poetry/
-```
-
-A `.gitignore` allowlist enforces this: everything under `source/.claude/` is
-ignored except the files above, so runtime state (`sessions/`, `history.jsonl`,
-`projects/`, caches, and secrets like `mcp-needs-auth-cache.json`) can never be
-committed.
-
-**Plugins and marketplaces are not tracked as state files.** They're declared
-in `settings.json` via `enabledPlugins` and `extraKnownMarketplaces`; Claude
-rehydrates the actual plugin code (and the regenerated `plugins/*.json` state)
-on first run. This keeps the footprint to a single declarative source of truth.
-
-`settings.json` intentionally omits `AWS_BEARER_TOKEN_BEDROCK` and any other
-secrets. Set those in your shell environment or a local `.env` file — never
-committed. Its `statusLine.command` references `~/.claude/statusline-command.sh`
-by a portable path (no hardcoded home), and the statusline needs `jq` (installed
-by the `homebrews` recipe).
-
-The `claude` recipe symlinks each curated file into `~/.claude/` and offers to
-install the Claude Code CLI via Anthropic's native installer. It requires
-`~/.claude/` to be a **real directory** — if it's a symlink (a legacy whole-dir
-symlink into the repo), the recipe refuses to run rather than write runtime
-state into version control.
+`recipes/claude` installs the Claude Code CLI and nothing else. It still refuses to run
+if `~/.claude/` is a symlink rather than a real directory: that directory is Claude
+Code's live home and holds runtime state (sessions, history, caches, hydrated plugins)
+that must never enter a repository. `recipes/dotfiles` skips `.claude/` for the same
+reason — symlinking the whole directory would replace that state.
 
 ---
 
