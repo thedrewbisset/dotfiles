@@ -301,6 +301,43 @@ Store the key under service name `claude-bedrock-token` using the `pbpaste` meth
 
 ---
 
+## Git identities
+
+`.gitconfig` selects an identity per directory:
+
+```
+[include]
+  path = ~/.gitconfig-personal              # default
+[includeIf "gitdir:~/dev/projects/<group>/"]
+  path = ~/.gitconfig-<group>               # overrides it under that tree
+```
+
+Each target holds a real name, address and SSH key path, so **the files themselves are
+gitignored** — this repo is public. Templates are committed as `.example`:
+
+```
+cp source/.gitconfig-personal.example source/.gitconfig-personal
+$EDITOR source/.gitconfig-personal
+bin/install.sh dotfiles
+```
+
+**These files are required, not optional.** If a target is missing, git ignores the
+include *silently* — no warning, and nothing in `git config` output to show it. Commits
+fall back to the default identity, and pushes may authenticate as the wrong account,
+because `core.sshCommand` lives in the same file. The first symptom is usually a
+misattributed commit or a `Repository not found` error pointing at the remote rather
+than at local config.
+
+`recipes/dotfiles/install` checks every include target after linking `.gitconfig` and
+warns loudly about any that are missing. It does not create them from the templates on
+purpose: a working identity reading `<github-username>` is worse than no identity.
+
+Verify at any point with:
+
+```
+git -C <some-repo> config user.email
+```
+
 ## SSH key setup
 
 After running the dotfiles recipe, generate SSH keys for each GitHub profile:
