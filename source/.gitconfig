@@ -1,6 +1,9 @@
-[user]
-	email = thedrewbisset@gmail.com
-	name = thedrewbisset
+# Default identity. Kept out of this repository for the same reason as the
+# per-directory identities below: it is a real name and address, and this
+# repository is public. Copy .gitconfig-personal.example to
+# ~/.gitconfig-personal and fill it in.
+[include]
+	path = ~/.gitconfig-personal
 [core]
   excludesfile = ~/.git-excludes-file
   sshCommand = ssh -i ~/.ssh/github.com-tdb -o IdentitiesOnly=yes

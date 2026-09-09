@@ -51,3 +51,14 @@ recipes/paperclip/company/
 # effect on tracked paths, and those names are public in this repo's history
 # regardless. It only stops the set from growing.
 source/.tmuxinator/*
+
+# Per-directory git identities. Each holds a real name, address and key path for
+# one account, which is the correlation a public dotfiles repo should not carry:
+# it publishes which accounts one person operates. Templates are committed as
+# .example; copy one and fill it in per machine.
+#
+# As with the layouts above, this does not untrack what history already holds.
+# It stops the set from growing.
+source/.gitconfig-lge
+source/.gitconfig-chartpro
+source/.gitconfig-personal

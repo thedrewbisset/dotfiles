@@ -1,6 +1,0 @@
-[user]
-  name = drew-chartpro
-  email = drew@chartpro.ai
-
-[core]
-  sshCommand = ssh -i ~/.ssh/chartpro -o IdentitiesOnly=yes
