@@ -49,3 +49,8 @@ for dotfile in $dotfiles; do
     set_link $source_path $target_path
   fi
 done
+
+# .gitconfig is now in place; check that every identity it includes actually
+# exists. A missing include is silent in git and shows up much later as a
+# misattributed commit or a push under the wrong account.
+check_git_includes "$dir" || true

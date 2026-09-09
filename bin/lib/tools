@@ -47,3 +47,66 @@ function set_link {
     ln -s $source_path $target_path
   fi
 }
+
+# Warn when a git include target is missing.
+#
+# .gitconfig selects an identity per directory via includeIf. If the target file
+# does not exist, git SILENTLY ignores the include and falls back to the default
+# [user] -- no warning, and nothing in `git config` output to show it happened.
+# The first symptom is usually a commit authored under the wrong name, or a push
+# authenticating as the wrong account because core.sshCommand lived in the same
+# missing file. Both are discovered too late.
+#
+# Deliberately warns rather than creating the file from its .example: a template
+# supplies placeholder values, and a working identity reading "<github-username>"
+# is worse than no identity at all.
+function check_git_includes {
+  local gitconfig="${TARGET_HOME:-$HOME}/.gitconfig"
+  local dotfiles_dir="${1:-$PWD}"
+  local missing=()
+
+  [ -r "$gitconfig" ] || return 0
+
+  local raw path
+  while IFS= read -r raw; do
+    path="${raw#*=}"
+    path="${path#"${path%%[![:space:]]*}"}"
+    path="${path%"${path##*[![:space:]]}"}"
+    [ -n "$path" ] || continue
+    case "$path" in
+      "~"*) path="${TARGET_HOME:-$HOME}${path#\~}" ;;
+    esac
+    if [ ! -e "$path" ]; then
+      case " ${missing[*]} " in
+        *" $path "*) ;;
+        *) missing+=("$path") ;;
+      esac
+    fi
+  done < <(grep -E '^[[:space:]]*path[[:space:]]*=' "$gitconfig" 2>/dev/null)
+
+  [ ${#missing[@]} -eq 0 ] && return 0
+
+  echo ""
+  echo "=============================================================="
+  echo "WARNING: git identity files referenced by .gitconfig are missing"
+  echo "=============================================================="
+  local m base
+  for m in "${missing[@]}"; do
+    base="$(basename "$m")"
+    echo ""
+    echo "  $m"
+    echo "    Git ignores this include silently. Commits in the directories"
+    echo "    it covers will use the DEFAULT identity, and pushes may"
+    echo "    authenticate as the wrong account."
+    if [ -f "$dotfiles_dir/source/$base.example" ]; then
+      echo "    Fix: cp source/$base.example source/$base"
+      echo "         \$EDITOR source/$base   # then re-run this recipe"
+    else
+      echo "    Fix: create $m with the identity it should supply."
+    fi
+  done
+  echo ""
+  echo "=============================================================="
+  echo ""
+  return 1
+}

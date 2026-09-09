@@ -1,3 +1,8 @@
+# REQUIRED, not optional. .gitconfig includes this file by path. If it does
+# not exist, git ignores the include SILENTLY -- no warning, and nothing in
+# `git config` output to show it happened. Commits fall back to the default
+# identity and pushes may authenticate as the wrong account.
+#
 # Default git identity, included from .gitconfig.
 #
 # Copy to .gitconfig-personal (without .example) and fill in. The real file is
