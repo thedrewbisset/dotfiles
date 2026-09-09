@@ -11,15 +11,6 @@ source/.vim/undo
 # Git worktrees
 **/.worktrees/
 
-# --- Claude Code config (source/.claude) ---
-# This repo no longer manages ~/.claude. Agent configuration lives in its own
-# version-controlled home with its own installer; recipes/claude installs the CLI
-# and nothing else. What is left here is the two skills that were never carried
-# across -- see #16. Everything else under the directory stays ignored so no
-# runtime state can land in the repo.
-source/.claude/*
-!source/.claude/skills/
-
 # --- Paperclip config (source/.paperclip) ---
 # ~/.paperclip is Paperclip's live home (a real directory) holding embedded
 # Postgres data, uploads, logs, secrets and agent workspaces under instances/.

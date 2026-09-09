@@ -9,8 +9,7 @@ set -e
 #
 # It used to symlink those files out of source/.claude/. It stopped because two
 # installers managing the same paths meant re-running this recipe silently
-# reverted the other one's work. The files under source/.claude/ are inert
-# leftovers pending removal; nothing links them.
+# reverted the other one's work. source/.claude/ has since been removed.
 #
 # ~/.claude must remain a REAL directory. It is Claude Code's live home and holds
 # runtime state (sessions, history, projects) that must never enter a repository.
