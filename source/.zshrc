@@ -171,6 +171,7 @@ colima-init() {
 # Claude Code - Max subscription (personal/hobby)
 claude-lge() {
   echo "✅ Claude Code → Anthropic Max (personal)"
+  unset CLAUDE_CODE_USE_BEDROCK
   claude "$@"
 }
 
@@ -180,7 +181,7 @@ claude-chartpro() {
   CLAUDE_CODE_USE_BEDROCK=1 \
   AWS_REGION=us-west-2 \
   AWS_PROFILE=bedrock \
-  AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-token -w)" \
+  AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-legacy-token -w)" \
   ANTHROPIC_MODEL='us.anthropic.claude-sonnet-5' \
   ANTHROPIC_DEFAULT_HAIKU_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0' \
   claude "$@"
