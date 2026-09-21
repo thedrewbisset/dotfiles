@@ -21,6 +21,9 @@ recipes/
 │   └── install
 ├── vim-plugins/
 │   └── install
+├── tmux/
+│   ├── install     # clones tpm and installs the plugins .tmux.conf declares
+│   └── teardown    # removes cloned plugins (saved sessions are kept)
 └── ...             # all other recipes follow the same pattern
 ```
 
@@ -48,6 +51,39 @@ Code's live home and holds runtime state (sessions, history, caches, hydrated pl
 that must never enter a repository. `recipes/dotfiles` skips `.claude/` for the same
 reason — symlinking the whole directory would replace that state.
 
+### tmux session persistence
+
+`source/.tmux.conf` declares its plugins with tpm (`set -g @plugin`), and `recipes/tmux`
+is the non-interactive half: it clones tpm if absent and runs tpm's own
+`bin/install_plugins`, so a fresh machine comes up with the plugins already present
+rather than waiting for someone to press `prefix + I`. tpm parses the `@plugin` lines
+straight out of `~/.tmux.conf`, so **this recipe must run after `dotfiles`** — that is
+the symlink it reads. tmux itself does not need to be running.
+
+[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) saves the session tree —
+windows, panes, layouts, working directories, and pane contents — to disk, and restores it
+into a server that has lost it. Saves land in `~/.local/share/tmux/resurrect/`; resurrect
+only falls back to the older `~/.tmux/resurrect/` when that directory *already* exists, so
+the path depends on machine history rather than on this config. `@resurrect-dir` pins it
+if that ever matters.
+[tmux-continuum](https://github.com/tmux-plugins/tmux-continuum) is the timer that drives
+the save. Two decisions to know before changing either:
+
+- **Saving is both periodic and detach-driven.** continuum saves every 15 minutes, which
+  bounds what a crash or reboot *while attached* can cost. A `client-detached` hook saves
+  on top of that, because detaching is the one moment the state is known-final; tmux fires
+  that hook on an abrupt client death (closed terminal, dropped ssh) exactly as it does on
+  a polite detach. The hook is guarded on the script existing, so a machine that has not
+  run this recipe yet still loads the config cleanly.
+- **Restore is manual: `prefix + Ctrl-r`.** `@continuum-restore` is explicitly `off`.
+  It would rebuild every saved session the moment a server starts, which races a
+  `tmuxinator start` for the same session name and leaves duplicates behind.
+
+`prefix` is `C-a` here, so the full bindings are `C-a Ctrl-s` to save now and
+`C-a Ctrl-r` to restore. `bin/teardown.sh tmux` removes the cloned plugins and leaves saved state
+alone — that is data, not an installed artifact, and it lives outside the plugin
+directory anyway.
+
 ---
 
 ## Installation
@@ -60,6 +96,7 @@ bin/install.sh all
 bin/install.sh dotfiles
 bin/install.sh claude
 bin/install.sh vim-plugins
+bin/install.sh tmux
 bin/install.sh homebrews
 bin/install.sh postgresql
 bin/install.sh rubies
@@ -127,6 +164,7 @@ bin/teardown.sh claude
 
 # Remove installed artifacts for project-local recipes
 bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
+bin/teardown.sh tmux          # removes cloned tmux plugins; keeps saved sessions
 bin/teardown.sh bats          # removes cloned bats from source/.bats/
 bin/teardown.sh python        # removes base-dev and base-ml conda environments
 bin/teardown.sh nvm           # removes nvm and all installed Node.js versions

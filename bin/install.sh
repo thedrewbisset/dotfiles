@@ -27,6 +27,7 @@ while [[ $# -gt 0 ]]; do
       echo "  dotfiles    Symlink dotfiles to \$HOME"
       echo "  claude      Symlink Claude Code config"
       echo "  vim-plugins Install vim 8 plugins"
+      echo "  tmux        Install tmux plugins via tpm"
       echo "  homebrews   Install Homebrew packages"
       echo "  postgresql  Install PostgreSQL"
       echo "  kiex        Install Elixir version manager"
@@ -59,6 +60,7 @@ if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/claude/install"
   source "$PWD/recipes/vim-plugins/install"
   source "$PWD/recipes/homebrews/install"
+  source "$PWD/recipes/tmux/install"
   source "$PWD/recipes/postgresql/install"
   source "$PWD/recipes/kiex/install"
   source "$PWD/recipes/rubies/install"
@@ -81,6 +83,9 @@ else
       ;;
     vim-plugins)
       source "$PWD/recipes/vim-plugins/install"
+      ;;
+    tmux)
+      source "$PWD/recipes/tmux/install"
       ;;
     homebrews)
       source "$PWD/recipes/homebrews/install"

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Removes cloned tmux plugins, including tpm itself.
+#
+# Saved session state is deliberately left alone: it is data rather than an
+# installed artifact, and it lives outside this directory anyway
+# (~/.local/share/tmux/resurrect/ by default). Reinstalling brings the plugins
+# back and the saves are still there to restore from.
+
+tmux_plugins="${TARGET_HOME:-$HOME}/.tmux/plugins"
+
+echo "Tearing down tmux plugins..."
+
+if [ -d "$tmux_plugins" ]; then
+  for plugin_dir in "$tmux_plugins"/*/; do
+    [ -d "$plugin_dir" ] || continue
+    rm -rf "$plugin_dir"
+    echo "Removed: $plugin_dir"
+  done
+else
+  echo "No tmux plugins directory at $tmux_plugins; nothing to do."
+fi

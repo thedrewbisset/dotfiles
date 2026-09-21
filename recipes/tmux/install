@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# tmux plugins, installed through tpm.
+#
+# source/.tmux.conf already bootstraps tpm and declares its plugins with
+# `set -g @plugin`, but tpm only acts on those declarations when a human presses
+# prefix + I inside a running server. This recipe is the non-interactive half:
+# it clones tpm if absent and runs tpm's own bin/install_plugins, so a fresh
+# machine comes up with tmux-resurrect and tmux-continuum already present
+# instead of waiting for a keystroke nobody remembers to type.
+#
+# Must run after recipes/dotfiles: install_plugins parses `@plugin` lines out of
+# ~/.tmux.conf, which is the symlink that recipe creates. tmux itself does not
+# need to be running -- tpm reads the file directly.
+
+tmux_home="${TARGET_HOME:-$HOME}/.tmux"
+tpm_path="$tmux_home/plugins/tpm"
+
+if ! command -v tmux &>/dev/null; then
+  echo "tmux not installed; skipping its plugins (run 'bin/install.sh homebrews' first)."
+else
+  if [ ! -d "$tpm_path/.git" ]; then
+    echo "Installing tpm..."
+    mkdir -p "$tmux_home/plugins"
+    git clone https://github.com/tmux-plugins/tpm "$tpm_path" ||
+      echo "Warning: failed to clone tpm, skipping plugin installation."
+  else
+    echo "Updating tpm..."
+    git -C "$tpm_path" pull --rebase ||
+      echo "Warning: failed to update tpm, continuing with the installed copy."
+  fi
+
+  if [ -x "$tpm_path/bin/install_plugins" ]; then
+    # HOME is what tpm resolves ~/.tmux.conf and the plugin directory against,
+    # so --target installs land in the target tree rather than the real home.
+    HOME="${TARGET_HOME:-$HOME}" "$tpm_path/bin/install_plugins" ||
+      echo "Warning: some tmux plugins failed to install."
+    HOME="${TARGET_HOME:-$HOME}" "$tpm_path/bin/update_plugins" all ||
+      echo "Warning: some tmux plugins failed to update."
+  fi
+fi
