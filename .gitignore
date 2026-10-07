@@ -46,3 +46,11 @@ source/.tmuxinator/*
 source/.gitconfig-lge
 source/.gitconfig-chartpro
 source/.gitconfig-personal
+
+# Local deny-list for the privacy gate. Never committed -- publishing it would
+# publish the names it exists to withhold.
+scripts/denylist.local.txt
+
+# Python bytecode
+__pycache__/
+*.pyc

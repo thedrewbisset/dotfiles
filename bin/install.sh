@@ -22,6 +22,7 @@ while [[ $# -gt 0 ]]; do
       echo ""
       echo "Recipes:"
       echo "  all         Run all recipes in order"
+      echo "  hooks       Enable the privacy gate git hooks"
       echo "  zsh         Install oh-my-zsh"
       echo "  dotfiles    Symlink dotfiles to \$HOME"
       echo "  claude      Symlink Claude Code config"
@@ -52,6 +53,7 @@ if [[ -n "$TARGET_HOME" && "$TARGET_HOME" != "$HOME" ]]; then
 fi
 
 if [[ "$RECIPE" == "all" ]]; then
+  source "$PWD/recipes/hooks/install"
   source "$PWD/recipes/oh-my-zsh/install"
   source "$PWD/recipes/dotfiles/install"
   source "$PWD/recipes/claude/install"
@@ -65,6 +67,9 @@ if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/bats/install"
 else
   case "$RECIPE" in
+    hooks)
+      source "$PWD/recipes/hooks/install"
+      ;;
     zsh)
       source "$PWD/recipes/oh-my-zsh/install"
       ;;

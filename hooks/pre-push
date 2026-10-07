@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+#
+# The last gate before anything leaves this machine.
+#
+# Runs the full check, deny-list included, over the working tree AND the commits
+# actually being pushed.
+#
+# It scans the range, not all history. This repository's past is already public
+# and cannot be unpublished, so scanning it would report findings nobody can act
+# on -- and a check that cannot be satisfied is one people learn to bypass, which
+# costs more than it protects.
+#
+# `git push --no-verify` still skips this. That is git, not a gap here: a leak now
+# takes two deliberate bypasses rather than one habitual one.
+
+set -u
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+gate="${repo_root}/scripts/check_privacy.py"
+[ -f "$gate" ] || exit 0
+
+if ! command -v python3 >/dev/null 2>&1; then
+  printf 'pre-push: python3 not found; cannot run the privacy gate.\n' >&2
+  exit 1
+fi
+
+if [ ! -f "${repo_root}/scripts/denylist.local.txt" ]; then
+  cat >&2 <<'MSG'
+
+pre-push: no scripts/denylist.local.txt on this machine.
+
+Account handles, clients and employers are checked only against that list, which is
+deliberately never committed. Without it this push has had no name check.
+
+  cp scripts/denylist.local.txt.example scripts/denylist.local.txt   # then edit
+
+MSG
+  exit 1
+fi
+
+# git feeds <local ref> <local sha> <remote ref> <remote sha> on stdin.
+zero="0000000000000000000000000000000000000000"
+ranges=""
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue        # branch deletion
+  ranges="${ranges} ${local_sha}"
+done
+[ -n "$ranges" ] && ranges="${ranges} --not --remotes"
+
+# Quoted: --range takes one argument. Unquoted, the shell splits "sha --not
+# --remotes" into three, and the gate rejects --not as an unknown option.
+if [ -n "$ranges" ]; then
+  python3 "$gate" "--range=${ranges# }" && exit 0
+else
+  python3 "$gate" && exit 0
+fi
+
+cat >&2 <<'MSG'
+
+pre-push: blocked.
+
+Findings cover the commits about to be pushed, so the problem may be in an earlier
+commit on this branch rather than in what you just wrote. Fix it here: once pushed
+this repository is public, and rewriting history does not unpublish anything.
+
+MSG
+exit 1
