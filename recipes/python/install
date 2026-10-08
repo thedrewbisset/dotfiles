@@ -12,4 +12,8 @@ for tool in "${PYTHON_TOOLS[@]}"; do
   uv tool install --python "$UV_PYTHON_VERSION" "$tool"
 done
 
-echo "Python setup complete (tools: ${PYTHON_TOOLS[*]})"
+# Poetry builds sdists and seeds new venvs with its own interpreter, not the
+# project's, so it must run on the Python its projects pin.
+uv tool install --python 3.12 poetry==2.1.1
+
+echo "Python setup complete (tools: ${PYTHON_TOOLS[*]} poetry)"

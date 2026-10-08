@@ -2,7 +2,7 @@
 
 # Undoes recipes/python and the Python recipes/uv installs. Leaves uv itself
 # (Homebrew owns it) and project .venvs alone.
-PYTHON_TOOLS=(ruff)
+PYTHON_TOOLS=(ruff poetry==2.1.1)
 UV_PYTHON_VERSION="3.14"
 
 echo "Tearing down uv-managed Python..."
@@ -12,7 +12,8 @@ if ! command -v uv &> /dev/null; then
   exit 0
 fi
 
-for tool in "${PYTHON_TOOLS[@]}"; do
+for spec in "${PYTHON_TOOLS[@]}"; do
+  tool="${spec%%==*}"
   if uv tool list 2>/dev/null | grep -q "^${tool} "; then
     uv tool uninstall "$tool"
     echo "Removed uv tool: $tool"

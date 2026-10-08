@@ -120,6 +120,11 @@ bin/install.sh ml
 uv manages every Python we run. `bin/install.sh uv` installs uv (Homebrew also lists it, so either recipe can come first) and a uv-managed Python 3.14. Homebrew's own `python@3.14` stays only because other formulae depend on it.
 
 - **Global tools** — `bin/install.sh python` installs only tools that never import project code, currently just `ruff`. Each uv tool runs in its own environment and cannot see a project's packages or Python, so `pytest`, `ipython` and the like are per-project dev dependencies (`uv add --dev`).
+- **Poetry** — installed as a uv tool on Python 3.12, the version its projects pin. Poetry builds sdists and seeds new venvs with its *own* interpreter, so a Poetry on another Python silently produces a venv or C extensions for the wrong version (`poetry env use` is affected too). To (re)build a Poetry project's in-project venv, create it with uv first, then let Poetry fill it:
+
+  ```bash
+  uv venv --python 3.12 --managed-python --seed .venv && poetry install
+  ```
 - **ML environment** — `bin/install.sh ml` is opt-in. It syncs `recipes/ml/pyproject.toml` into `~/.venvs/ml`. `uv.lock` is gitignored, so versions float until one is pinned in `pyproject.toml`. Add packages with `uv add --project recipes/ml <package>`.
 
 ### Paperclip
