@@ -32,6 +32,7 @@ while [[ $# -gt 0 ]]; do
       echo "  postgresql  Install PostgreSQL"
       echo "  kiex        Install Elixir version manager"
       echo "  rubies      Install Ruby via rbenv"
+      echo "  uv          Install uv and its managed Python"
       echo "  python      Install Python via miniconda"
       echo "  nvm         Install Node.js via nvm"
       echo "  bats        Install bats test framework"
@@ -98,6 +99,9 @@ else
       ;;
     rubies)
       source "$PWD/recipes/rubies/install"
+      ;;
+    uv)
+      source "$PWD/recipes/uv/install"
       ;;
     python)
       source "$PWD/recipes/python/install"

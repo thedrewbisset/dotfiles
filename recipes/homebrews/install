@@ -42,7 +42,6 @@ sip ios-deploy
 sip jq
 sip llvm
 sip postgresql@16
-sip python@3.12
 sip rbenv
 sip redis
 sip ripgrep
@@ -50,6 +49,7 @@ sip ruby-build
 sip shellcheck
 sip supabase/tap/supabase
 sip tmux
+sip uv
 sip vim
 sip wget
 sip yt-dlp
