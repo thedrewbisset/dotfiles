@@ -3,32 +3,6 @@
 
 base_dir="${CLEANUP_BASE_DIR:-$HOME/dev}"
 
-# conda environments
-conda_sh="$HOME/miniconda3/etc/profile.d/conda.sh"
-if [[ -f "$conda_sh" ]]; then
-  # shellcheck disable=SC1090
-  source "$conda_sh"
-  if command -v conda &>/dev/null; then
-    # conda package + tarball cache
-    pkgs_dir="$HOME/miniconda3/pkgs"
-    if [[ -d "$pkgs_dir" ]]; then
-      register_artifact "conda-cache" "conda package/tarballs cache ($pkgs_dir)" \
-        "$(dir_size "$pkgs_dir")" "$(last_modified "$pkgs_dir")" \
-        "conda clean --all -y"
-    fi
-
-    # Individual conda environments (skip base)
-    while IFS= read -r env_path; do
-      [[ -z "$env_path" || "$env_path" == *"/miniconda3 "* ]] && continue
-      env_name="$(basename "$env_path")"
-      [[ "$env_name" == "base" ]] && continue
-      register_artifact "conda-env" "conda env: $env_name" \
-        "$(dir_size "$env_path")" "$(last_modified "$env_path")" \
-        "conda env remove -n $env_name -y"
-    done < <(conda env list </dev/null 2>/dev/null | grep -v '^#' | grep -v '^$' | awk '{print $NF}')
-  fi
-fi
-
 # pip cache
 if command -v pip &>/dev/null || command -v pip3 &>/dev/null; then
   pip_cmd="$(command -v pip3 || command -v pip)"

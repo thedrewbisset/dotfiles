@@ -237,7 +237,7 @@ bin/diskclean simulators     # Xcode DerivedData, iOS DeviceSupport, simulators,
 bin/diskclean homebrews      # Homebrew download cache, stale formulae, logs
 bin/diskclean docker         # images, stopped containers, build cache, dangling volumes
 bin/diskclean npm            # npm/yarn/pnpm caches + project node_modules
-bin/diskclean python         # conda/pip/poetry caches, pyenv versions, .venv, __pycache__
+bin/diskclean python         # pip/poetry caches, pyenv versions, .venv, __pycache__
 bin/diskclean rubies         # rbenv versions, gem/bundler caches, project .bundle
 bin/diskclean build          # .build, Rust target/, Gradle, Maven, .next/.nuxt, dist/, _build
 bin/diskclean cocoapods      # CocoaPods spec repos, cache, project Pods/
