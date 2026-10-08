@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Read-only heat map of where a path's disk usage goes. Never deletes.
+set -euo pipefail
+
+DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$DOTFILES_ROOT/bin/lib/diskmap_tools"
+
+usage() {
+  echo "Usage: bin/diskmap [PATH] [--usage-above-pcent N]"
+  echo "  PATH defaults to the data volume root, where undiscoverable usage can be measured."
+  echo "  Entries using at least N% of PATH (default 1) are shown and expanded;"
+  echo "  everything smaller is rolled up, so every level sums to its parent."
+  exit 1
+}
+
+TARGET="$DATA_ROOT" PCENT=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --usage-above-pcent) PCENT="${2:?}"; shift 2 ;;
+    -h|--help|-*) usage ;;
+    *) TARGET="$1"; shift ;;
+  esac
+done
+[[ -d "$TARGET" ]] || { echo "Not a directory: $TARGET" >&2; exit 1; }
+TARGET="$(cd "$TARGET" && pwd -P)"
+# "/" is the sealed system volume; the data volume is what grows.
+[[ "$TARGET" == "/" ]] && TARGET="$DATA_ROOT"
+
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+echo "Measuring $TARGET (one pass; the data volume takes a few minutes)..." >&2
+du -kx "$TARGET" > "$WORK/du" 2> "$WORK/err" || true
+
+root_kb="$(tail -1 "$WORK/du" | cut -f1)"
+total_kb="$root_kb"
+label="$TARGET"
+
+# Only the volume root has a total independent of du: APFS's own in-use figure.
+# Anywhere else, unreadable usage is invisible to every measurement available.
+if [[ "$TARGET" == "$DATA_ROOT" ]]; then
+  in_use="$(diskutil info -plist "$DATA_ROOT" | plutil -extract CapacityInUse raw -o - -)"
+  total_kb=$((in_use / 1024))
+  label="$TARGET (data volume, in use per APFS)"
+fi
+
+thr_kb="$(awk -v t="$total_kb" -v p="$PCENT" 'BEGIN{printf "%d", t * p / 100}' </dev/null)"
+awk -F'\t' -v thr="$thr_kb" '$1 >= thr' "$WORK/du" > "$WORK/dirs"
+# du lists directories only; a single file over the threshold is often the answer
+# (a VM disk, a backup image), so name those too. Only shown directories are searched.
+cp "$WORK/dirs" "$WORK/sizes"
+while IFS=$'\t' read -r _ dir; do
+  find "$dir" -maxdepth 1 -type f -size +"${thr_kb}k" -print0 2>/dev/null \
+    | xargs -0 du -k 2>/dev/null \
+    | awk -F'\t' -v thr="$thr_kb" '$1 >= thr { print $0 "\tf" }' >> "$WORK/sizes" || true
+done < "$WORK/dirs"
+sort -t$'\t' -k1,1nr -o "$WORK/sizes" "$WORK/sizes"
+sed -E 's/^du: //; s/: [^:]*$//' "$WORK/err" > "$WORK/blocked"
+
+render_tree "$WORK/sizes" "$WORK/blocked" "$TARGET" "$total_kb" "$thr_kb" "$label" "$PCENT"
+
+blocked_n="$(wc -l < "$WORK/blocked" | tr -d ' ')"
+if [[ "$blocked_n" -gt 0 ]]; then
+  echo ""
+  echo "$blocked_n entries were unreadable ($(blocked_reason "$(head -1 "$WORK/err")"), for the first)."
+  if [[ "$TARGET" != "$DATA_ROOT" ]]; then
+    echo "Their usage is unknown and excluded from every figure above; only the volume root can bound it."
+  fi
+fi
