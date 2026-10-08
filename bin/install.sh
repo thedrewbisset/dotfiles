@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
       echo "  kiex        Install Elixir version manager"
       echo "  rubies      Install Ruby via rbenv"
       echo "  uv          Install uv and its managed Python"
-      echo "  python      Install Python via miniconda"
+      echo "  python      Install Python via uv, plus global Python tools"
       echo "  nvm         Install Node.js via nvm"
       echo "  bats        Install bats test framework"
       echo "  paperclip   Install Paperclip agent control plane (not in 'all')"
