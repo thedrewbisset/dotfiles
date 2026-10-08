@@ -50,8 +50,9 @@ function set_link {
 
 # Warn when a git include target is missing.
 #
-# .gitconfig selects an identity per directory via includeIf. If the target file
-# does not exist, git SILENTLY ignores the include and falls back to the default
+# .gitconfig includes a local routing file, which selects an identity per
+# directory via includeIf. Both levels are checked. If a target file does not
+# exist, git SILENTLY ignores the include and falls back to the default
 # [user] -- no warning, and nothing in `git config` output to show it happened.
 # The first symptom is usually a commit authored under the wrong name, or a push
 # authenticating as the wrong account because core.sshCommand lived in the same
@@ -67,22 +68,33 @@ function check_git_includes {
 
   [ -r "$gitconfig" ] || return 0
 
-  local raw path
-  while IFS= read -r raw; do
-    path="${raw#*=}"
-    path="${path#"${path%%[![:space:]]*}"}"
-    path="${path%"${path##*[![:space:]]}"}"
-    [ -n "$path" ] || continue
-    case "$path" in
-      "~"*) path="${TARGET_HOME:-$HOME}${path#\~}" ;;
-    esac
-    if [ ! -e "$path" ]; then
-      case " ${missing[*]} " in
-        *" $path "*) ;;
-        *) missing+=("$path") ;;
-      esac
-    fi
-  done < <(grep -E '^[[:space:]]*path[[:space:]]*=' "$gitconfig" 2>/dev/null)
+  # Two levels: .gitconfig, then every include target it names that exists
+  # (the routing file). Identity files include nothing further.
+  local scan=("$gitconfig") nested=() level file raw path
+  for level in 1 2; do
+    nested=()
+    for file in "${scan[@]}"; do
+      while IFS= read -r raw; do
+        path="${raw#*=}"
+        path="${path#"${path%%[![:space:]]*}"}"
+        path="${path%"${path##*[![:space:]]}"}"
+        [ -n "$path" ] || continue
+        case "$path" in
+          "~"*) path="${TARGET_HOME:-$HOME}${path#\~}" ;;
+        esac
+        if [ ! -e "$path" ]; then
+          case " ${missing[*]} " in
+            *" $path "*) ;;
+            *) missing+=("$path") ;;
+          esac
+        else
+          nested+=("$path")
+        fi
+      done < <(grep -E '^[[:space:]]*path[[:space:]]*=' "$file" 2>/dev/null)
+    done
+    [ ${#nested[@]} -eq 0 ] && break
+    scan=("${nested[@]}")
+  done
 
   [ ${#missing[@]} -eq 0 ] && return 0
 
@@ -98,8 +110,12 @@ function check_git_includes {
     echo "    Git ignores this include silently. Commits in the directories"
     echo "    it covers will use the DEFAULT identity, and pushes may"
     echo "    authenticate as the wrong account."
-    if [ -f "$dotfiles_dir/source/$base.example" ]; then
-      echo "    Fix: cp source/$base.example source/$base"
+    local template="$dotfiles_dir/source/$base.example"
+    case "$base" in
+      .gitconfig-*) [ -f "$template" ] || template="$dotfiles_dir/source/.gitconfig-identity.example" ;;
+    esac
+    if [ -f "$template" ]; then
+      echo "    Fix: cp source/$(basename "$template") source/$base"
       echo "         \$EDITOR source/$base   # then re-run this recipe"
     else
       echo "    Fix: create $m with the identity it should supply."

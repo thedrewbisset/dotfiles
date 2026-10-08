@@ -369,7 +369,8 @@ satisfied is one people learn to bypass.
 
 ## Git identities
 
-`.gitconfig` selects an identity per directory:
+`.gitconfig` includes one local routing file, `~/.gitconfig-identities`, which selects an
+identity per directory:
 
 ```
 [include]
@@ -378,14 +379,19 @@ satisfied is one people learn to bypass.
   path = ~/.gitconfig-<group>               # overrides it under that tree
 ```
 
-Each target holds a real name, address and SSH key path, so **the files themselves are
-gitignored** — this repo is public. Templates are committed as `.example`:
+Each identity holds a real name, address and SSH key path, and the routing names them all,
+so **every one of these files is gitignored** — this repo is public. Two templates are
+committed: one for the routing, and one for any identity, however many there are:
 
 ```
-cp source/.gitconfig-personal.example source/.gitconfig-personal
-$EDITOR source/.gitconfig-personal
+cp source/.gitconfig-identities.example source/.gitconfig-identities
+cp source/.gitconfig-identity.example source/.gitconfig-personal    # once per identity
+$EDITOR source/.gitconfig-identities source/.gitconfig-personal
 bin/install.sh dotfiles
 ```
+
+Adding an identity later is local only: copy the identity template, and add an
+`includeIf` for it to `.gitconfig-identities`.
 
 **These files are required, not optional.** If a target is missing, git ignores the
 include *silently* — no warning, and nothing in `git config` output to show it. Commits
@@ -394,8 +400,8 @@ because `core.sshCommand` lives in the same file. The first symptom is usually a
 misattributed commit or a `Repository not found` error pointing at the remote rather
 than at local config.
 
-`recipes/dotfiles/install` checks every include target after linking `.gitconfig` and
-warns loudly about any that are missing. It does not create them from the templates on
+`recipes/dotfiles/install` checks every include target after linking `.gitconfig`, in
+both `.gitconfig` and the routing file, and warns loudly about any that are missing. It does not create them from the templates on
 purpose: a working identity reading `<github-username>` is worse than no identity.
 
 Verify at any point with:

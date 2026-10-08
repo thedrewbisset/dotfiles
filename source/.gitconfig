@@ -1,9 +1,3 @@
-# Default identity. Kept out of this repository for the same reason as the
-# per-directory identities below: it is a real name and address, and this
-# repository is public. Copy .gitconfig-personal.example to
-# ~/.gitconfig-personal and fill it in.
-[include]
-	path = ~/.gitconfig-personal
 [core]
   excludesfile = ~/.git-excludes-file
   sshCommand = ssh -i ~/.ssh/github.com-tdb -o IdentitiesOnly=yes
@@ -71,14 +65,11 @@
   ra = rebase --abort
   lo = log --graph --pretty="%Cgreen%h%Cblue%d%Cred%\\ aN%Creset%\\ s"
 
-[includeIf "gitdir:~/dev/projects/lge/"]
-  path = ~/.gitconfig-lge
-
-[includeIf "gitdir:~/dev/projects/clawz/"]
-  path = ~/.gitconfig-lge
-
-[includeIf "gitdir:~/dev/projects/chartpro/"]
-  path = ~/.gitconfig-chartpro
+# Identities, and which directories use them. Kept out of this repository: the
+# routing names which accounts one person operates, and this repository is
+# public. Copy .gitconfig-identities.example to ~/.gitconfig-identities.
+[include]
+  path = ~/.gitconfig-identities
 [credential "https://github.com"]
 	helper = 
 	helper = !/opt/homebrew/bin/gh auth git-credential

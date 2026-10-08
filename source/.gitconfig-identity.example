@@ -1,0 +1,16 @@
+# One git identity. Copy to .gitconfig-<name> (without .example), fill it in,
+# and route a directory to it from .gitconfig-identities. The real file is
+# gitignored: a working identity has to hold a real name and address, and this
+# repository is public.
+#
+# REQUIRED once routed. If an include target does not exist, git ignores it
+# SILENTLY -- commits fall back to the default identity and pushes may
+# authenticate as the wrong account. recipes/dotfiles/install warns about it.
+
+[user]
+  name = <github-username>
+  email = <email>
+
+# Optional. Omit to use the default key from .gitconfig.
+[core]
+  sshCommand = ssh -i ~/.ssh/<key-name> -o IdentitiesOnly=yes

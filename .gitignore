@@ -36,16 +36,16 @@ recipes/paperclip/company/
 # regardless. It only stops the set from growing.
 source/.tmuxinator/*
 
-# Per-directory git identities. Each holds a real name, address and key path for
-# one account, which is the correlation a public dotfiles repo should not carry:
-# it publishes which accounts one person operates. Templates are committed as
-# .example; copy one and fill it in per machine.
+# Git identities and the routing between them. Each identity holds a real name,
+# address and key path for one account, and the routing names them all: the
+# correlation a public dotfiles repo should not carry, since it publishes which
+# accounts one person operates. Templates are committed as .example; copy and
+# fill them in per machine.
 #
 # As with the layouts above, this does not untrack what history already holds.
 # It stops the set from growing.
-source/.gitconfig-lge
-source/.gitconfig-chartpro
-source/.gitconfig-personal
+source/.gitconfig-*
+!source/.gitconfig-*.example
 
 # Local deny-list for the privacy gate. Never committed -- publishing it would
 # publish the names it exists to withhold.
