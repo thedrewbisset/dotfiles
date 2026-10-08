@@ -21,6 +21,7 @@ done
 if [[ "$RECIPE" == "all" ]]; then
   source "$PWD/recipes/dotfiles/teardown"
   source "$PWD/recipes/vim-plugins/teardown"
+  source "$PWD/recipes/tmux/teardown"
   source "$PWD/recipes/bats/teardown"
   source "$PWD/recipes/python/teardown"
   source "$PWD/recipes/nvm/teardown"
@@ -43,6 +44,9 @@ else
       ;;
     vim-plugins)
       source "$PWD/recipes/vim-plugins/teardown"
+      ;;
+    tmux)
+      source "$PWD/recipes/tmux/teardown"
       ;;
     bats)
       source "$PWD/recipes/bats/teardown"

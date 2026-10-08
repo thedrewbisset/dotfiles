@@ -20,6 +20,8 @@ github.com/ohmyzsh/ohmyzsh
 github.com/ohmyzsh/ohmyzsh.git
 github.com/junegunn/fzf
 github.com/tmux-plugins/tpm
+github.com/tmux-plugins/tmux-resurrect
+github.com/tmux-plugins/tmux-continuum
 github.com/paperclipai/paperclip
 
 # An SSH URL, not an address.
