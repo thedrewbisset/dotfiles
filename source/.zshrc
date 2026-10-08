@@ -144,6 +144,34 @@ export PATH=$PATH:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$ANDROID_HOME/tools
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 
+# Xcode selection: a .xcode-version file (e.g. "26.3") in a directory or any parent
+# points DEVELOPER_DIR at /Applications/Xcode-<version>.app while inside it. A
+# DEVELOPER_DIR set by hand is left alone.
+_xcode_version_chpwd() {
+  [[ -n $DEVELOPER_DIR && $DEVELOPER_DIR != $_XCODE_VERSION_SET ]] && return
+
+  local dir=$PWD version
+  while :; do
+    [[ -r $dir/.xcode-version ]] && { version=$(<$dir/.xcode-version); break }
+    [[ $dir == / ]] && break
+    dir=${dir:h}
+  done
+  version=${version//[[:space:]]/}
+
+  if [[ -n $version ]]; then
+    local developer_dir=/Applications/Xcode-$version.app/Contents/Developer
+    if [[ -d $developer_dir ]]; then
+      export DEVELOPER_DIR=$developer_dir _XCODE_VERSION_SET=$developer_dir
+      return
+    fi
+    print -u2 "xcode-version: /Applications/Xcode-$version.app not found (from $dir/.xcode-version)"
+  fi
+  [[ -n $_XCODE_VERSION_SET ]] && unset DEVELOPER_DIR _XCODE_VERSION_SET
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd _xcode_version_chpwd
+_xcode_version_chpwd
+
 # Colima support
 export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
 export TESTCONTAINERS_RYUK_DISABLED=true
