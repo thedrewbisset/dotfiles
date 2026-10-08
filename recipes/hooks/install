@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+# Point this clone's git hooks at the tracked hooks/ directory.
+#
+# Git never installs hooks on clone, so a machine that skips this step pushes
+# with no privacy gate. Running it from the bootstrap means every clone that has
+# been set up with this repo's tooling has the gate too. The bootstrap stops here
+# if it fails: a machine silently without the gate is the case this prevents.
+
+"$PWD/scripts/install-hooks.sh"

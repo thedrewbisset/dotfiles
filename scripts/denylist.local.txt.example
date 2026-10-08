@@ -1,0 +1,21 @@
+# Local deny-list for the privacy gate. Copy to denylist.local.txt and edit.
+#
+# NEVER commit denylist.local.txt -- it is gitignored, because publishing this
+# list would publish exactly the names it exists to keep out of the repo.
+#
+# A match here BLOCKS. Cover: other accounts you operate, employers, clients,
+# their domains, and internal system names.
+#
+# One term per line, case-insensitive substring match.
+#
+# Two cautions, both learned the hard way:
+#
+#   Short terms match inside ordinary words. Prefer the longest distinctive form.
+#
+#   A term that appears in content you deliberately keep will block every commit.
+#   This repo keeps ssh Host aliases and includeIf paths containing organisation
+#   names, so deny-list the account handles and email domains instead of the bare
+#   organisation name.
+#
+# other-account-handle
+# clientname.com

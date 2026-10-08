@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+# Block a commit that would add a secret or a deny-listed name.
+#
+# Tracked in the repository rather than living in .git/hooks, so it is reviewable
+# and survives a fresh clone. Enable with scripts/install-hooks.sh.
+#
+# Working tree only. History belongs to pre-push, which scans what is actually
+# about to leave the machine.
+
+set -u
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+gate="${repo_root}/scripts/check_privacy.py"
+[ -f "$gate" ] || exit 0
+
+if ! command -v python3 >/dev/null 2>&1; then
+  printf 'pre-commit: python3 not found; cannot run the privacy gate.\n' >&2
+  printf 'pre-commit: refusing the commit rather than skipping the check.\n' >&2
+  exit 1
+fi
+
+python3 "$gate" && exit 0
+
+cat >&2 <<'MSG'
+
+pre-commit: blocked.
+
+This repository is public. Fix the findings above rather than bypassing the check.
+If a finding is a false positive, adjust the pattern in scripts/privacy_gate.py and
+add a test -- and copy the change to the other repository that shares that file, so
+the two do not drift.
+
+Warnings never block. Address them or add them to scripts/allowlist.txt.
+MSG
+exit 1

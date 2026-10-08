@@ -273,6 +273,42 @@ Store the key under service name `claude-bedrock-token` using the `pbpaste` meth
 
 ---
 
+## Privacy gate
+
+This repository is public, so a check runs before anything leaves the machine.
+
+```
+scripts/install-hooks.sh                    # once per clone
+cp scripts/denylist.local.txt.example scripts/denylist.local.txt   # then edit
+```
+
+Findings come in two tiers, split by *why* something is sensitive:
+
+**Block — secret by format.** AWS keys, GitHub and Slack tokens, private key blocks,
+JWTs, credentials in URLs, absolute home paths. These have an unambiguous shape, so
+they block, and **nothing switches them off** — a credential inside a vendored
+dependency is a live credential regardless of who committed it.
+
+**Warn — sensitive by identity.** Email addresses, `owner/repo` references, internal
+hostnames. No shape distinguishes yours from a third party's copyright header, so
+matching them precisely is impossible and matching them loosely misfires constantly.
+They warn, and `scripts/allowlist.txt` silences what is already known to be somebody
+else's. Warnings are aggregated: duplicates collapse with a count, a dominating path
+is reported once as a path to allowlist, and the listing is capped.
+
+| | Committed? | Effect |
+|---|---|---|
+| `scripts/denylist.local.txt` | **no** — gitignored | **blocks**; your other handles, clients, employers |
+| `scripts/allowlist.txt` | **yes** | silences identity **warnings**; third-party links, vendored paths |
+
+Two hooks: `pre-commit` checks the working tree; `pre-push` runs the full check
+including the deny-list over the commits actually being pushed. Git cannot make a hook
+mandatory, so the point is putting the real gate at the boundary that matters —
+`--no-verify` on a commit is typed by habit, on a push it is not.
+
+The check covers the change being made, not existing history: a check that cannot be
+satisfied is one people learn to bypass.
+
 ## Git identities
 
 `.gitconfig` selects an identity per directory:

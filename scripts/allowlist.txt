@@ -1,0 +1,30 @@
+# Identity-shaped strings already known to belong to somebody else.
+#
+# Silences WARNINGS only. Nothing here ever suppresses a format match: a
+# credential inside a vendored dependency is a live credential regardless of who
+# committed it. This list says "not my identity", never "do not look here".
+#
+# Committed on purpose, unlike scripts/denylist.local.txt -- these are public
+# third-party links and upstream copyright addresses, and a fresh clone should
+# inherit the baseline rather than re-derive it.
+#
+# One value per line, or `path: <prefix>` to cover a vendored tree.
+
+# Vendored upstream shell completions -- git's own, and hub's. Their copyright
+# headers carry the maintainers' addresses, and their config keys (branch.local,
+# instaweb.local) look like hostnames.
+path: source/deprecated/.bash
+
+# Third-party projects this repo installs or references.
+github.com/ohmyzsh/ohmyzsh
+github.com/ohmyzsh/ohmyzsh.git
+github.com/junegunn/fzf
+github.com/tmux-plugins/tpm
+github.com/paperclipai/paperclip
+
+# An SSH URL, not an address.
+git@github.com
+
+# Config keys and dotfile names that look like hostnames.
+storage.local
+zshrc.local
