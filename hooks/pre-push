@@ -24,20 +24,6 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f "${repo_root}/scripts/denylist.local.txt" ]; then
-  cat >&2 <<'MSG'
-
-pre-push: no scripts/denylist.local.txt on this machine.
-
-Account handles, clients and employers are checked only against that list, which is
-deliberately never committed. Without it this push has had no name check.
-
-  cp scripts/denylist.local.txt.example scripts/denylist.local.txt   # then edit
-
-MSG
-  exit 1
-fi
-
 # git feeds <local ref> <local sha> <remote ref> <remote sha> on stdin.
 zero="0000000000000000000000000000000000000000"
 ranges=""

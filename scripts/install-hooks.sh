@@ -25,9 +25,3 @@ chmod +x hooks/* 2>/dev/null || true
 
 printf 'install-hooks: core.hooksPath -> hooks/\n'
 printf 'install-hooks: active hooks: %s\n' "$(ls hooks | tr '\n' ' ')"
-
-if [ ! -f scripts/denylist.local.txt ]; then
-  printf '\ninstall-hooks: WARNING: no scripts/denylist.local.txt.\n'
-  printf 'install-hooks: pre-push will refuse until you create one:\n'
-  printf 'install-hooks:   cp scripts/denylist.local.txt.example scripts/denylist.local.txt\n'
-fi

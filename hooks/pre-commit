@@ -27,9 +27,9 @@ cat >&2 <<'MSG'
 pre-commit: blocked.
 
 This repository is public. Fix the findings above rather than bypassing the check.
-If a finding is a false positive, adjust the pattern in scripts/privacy_gate.py and
-add a test -- and copy the change to the other repository that shares that file, so
-the two do not drift.
+If a finding is a false positive, do not edit scripts/privacy_gate.py here: it is a
+mirrored copy, and a local edit is overwritten by the next mirror. Raise it with the
+gate's owning repository, then commit the updated copy once it is mirrored back.
 
 Warnings never block. Address them or add them to scripts/allowlist.txt.
 MSG

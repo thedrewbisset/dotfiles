@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """Shared privacy gate.
 
-THIS FILE IS DUPLICATED VERBATIM ACROSS REPOSITORIES. It cannot be a shared
-dependency: one of the repositories using it is public and must not reference the
-other, so importing it across them would create the exact linkage the gate exists
-to prevent. Keep the copies byte-identical, so drift is a diff rather than a
-surprise.
+CANONICAL COPY: the `exponential-claude-config` repository, at
+scripts/privacy_gate.py. That repo's scripts/mirror-privacy-gate mirrors it
+byte-for-byte, one way only, into every other repository that uses it. If
+this is not that repo, this file is a mirrored copy -- never edit it
+directly. An edit made on this side is silently discarded by the next mirror
+run and has no __version__ to tell you so.
+
+It cannot be a shared dependency: one of the repositories using it is public
+and must not reference the other, so importing it across them would create
+the exact linkage the gate exists to prevent. __version__ and
+scripts/privacy_gate.sha256, both maintained in the canonical copy, exist so
+a change to this file is a diff, not a surprise: that repo's
+scripts/mirror-privacy-gate --check reports drift without touching anything.
 
 Two tiers, split by why a match matters:
 
@@ -22,10 +30,18 @@ Two tiers, split by why a match matters:
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+# Bump on every change to this file, and refresh scripts/privacy_gate.sha256 to
+# match (see test_privacy_gate_checksum_matches_version). The mirror script
+# refuses to copy a file whose version it has already copied, so a stale bump
+# is a silent no-op mirror rather than a loud test failure -- the checksum test
+# is what actually catches "changed the file, forgot to bump".
+__version__ = "1.1.2"
 
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache"}
 
@@ -248,8 +264,28 @@ def load_allowlist(root: Path) -> tuple[set[str], list[str]]:
 def path_allowlisted(rel: str, paths: list[str]) -> bool:
     return any(rel == p or rel.startswith(p + "/") for p in paths)
 
+CONFIG_DIR_NAME = "exponential"
+
+def shared_denylist_path() -> Path:
+    """The deny-list location shared by every repo this gate is mirrored into.
+
+    One file per machine rather than one per repo, so a name added for one
+    repo protects the other without being copied by hand. XDG_CONFIG_HOME
+    wins when set and non-empty, matching shell `${VAR:-default}` semantics.
+    """
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    config_home = Path(xdg) if xdg else Path.home() / ".config"
+    return config_home / CONFIG_DIR_NAME / "denylist.txt"
+
 def local_denylist(root: Path) -> list[str]:
-    path = root / "scripts" / "denylist.local.txt"
+    """The shared, cross-repo deny-list, falling back to the in-repo one.
+
+    The fallback exists so a machine that has not yet created the shared file
+    keeps working exactly as before -- moving to the shared location is
+    opt-in by creating the file, not a breaking change on the day it ships.
+    """
+    shared = shared_denylist_path()
+    path = shared if shared.is_file() else root / "scripts" / "denylist.local.txt"
     text = read_text(path)
     if text is None:
         return []
@@ -276,15 +312,20 @@ def check_privacy(root: Path, allow_missing_denylist: bool = False) -> tuple[lis
     if not terms:
         if allow_missing_denylist:
             notices.append(
-                "no scripts/denylist.local.txt -- employer/client/project names are NOT "
-                "being checked, and --allow-missing-denylist was passed. Structural "
+                "no deny-list found (checked "
+                "${XDG_CONFIG_HOME:-$HOME/.config}/" + CONFIG_DIR_NAME + "/denylist.txt "
+                "and scripts/denylist.local.txt) -- employer/client/project names are "
+                "NOT being checked, and --allow-missing-denylist was passed. Structural "
                 "patterns still ran."
             )
         else:
             findings.append(
                 Finding("privacy", "scripts/denylist.local.txt", 0,
-                        "missing -- employer/client/project names are unchecked. "
-                        "Copy denylist.local.txt.example and fill it in, or pass "
+                        "missing -- checked "
+                        "${XDG_CONFIG_HOME:-$HOME/.config}/" + CONFIG_DIR_NAME + "/denylist.txt "
+                        "and scripts/denylist.local.txt, found neither. employer/client/"
+                        "project names are unchecked. Copy denylist.local.txt.example to "
+                        "one of those paths and fill it in, or pass "
                         "--allow-missing-denylist to accept structural checks only")
             )
 
