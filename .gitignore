@@ -54,3 +54,6 @@ scripts/denylist.local.txt
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Claude Code worktrees, created inside the checkout they branch from
+.claude/worktrees/
