@@ -315,7 +315,8 @@ This repository is public, so a check runs before anything leaves the machine.
 
 ```
 scripts/install-hooks.sh                    # once per clone
-cp scripts/denylist.local.txt.example scripts/denylist.local.txt   # then edit
+mkdir -p ~/.config/exponential
+cp scripts/denylist.local.txt.example ~/.config/exponential/denylist.txt   # then edit
 ```
 
 Findings come in two tiers, split by *why* something is sensitive:
@@ -334,7 +335,7 @@ is reported once as a path to allowlist, and the listing is capped.
 
 | | Committed? | Effect |
 |---|---|---|
-| `scripts/denylist.local.txt` | **no** — gitignored | **blocks**; your other handles, clients, employers |
+| `${XDG_CONFIG_HOME:-~/.config}/exponential/denylist.txt` | **no** — outside the repo, shared by every clone and worktree; `scripts/denylist.local.txt` (gitignored) is the fallback | **blocks**; your other handles, clients, employers |
 | `scripts/allowlist.txt` | **yes** | silences identity **warnings**; third-party links, vendored paths |
 
 Two hooks: `pre-commit` checks the working tree; `pre-push` runs the full check
