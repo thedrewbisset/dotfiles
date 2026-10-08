@@ -104,6 +104,7 @@ bin/install.sh homebrews
 bin/install.sh postgresql
 bin/install.sh rubies
 bin/install.sh kiex
+bin/install.sh uv
 bin/install.sh python
 bin/install.sh nvm
 bin/install.sh bats
@@ -111,7 +112,15 @@ bin/install.sh zsh
 
 # Opt-in recipes (deliberately excluded from `all`)
 bin/install.sh paperclip
+bin/install.sh ml
 ```
+
+### Python
+
+uv manages every Python we run. `bin/install.sh uv` installs uv (Homebrew also lists it, so either recipe can come first) and a uv-managed Python 3.14. Homebrew's own `python@3.14` stays only because other formulae depend on it.
+
+- **Global tools** — `bin/install.sh python` installs only tools that never import project code, currently just `ruff`. Each uv tool runs in its own environment and cannot see a project's packages or Python, so `pytest`, `ipython` and the like are per-project dev dependencies (`uv add --dev`).
+- **ML environment** — `bin/install.sh ml` is opt-in. It syncs `recipes/ml/pyproject.toml` into `~/.venvs/ml`. `uv.lock` is gitignored, so versions float until one is pinned in `pyproject.toml`. Add packages with `uv add --project recipes/ml <package>`.
 
 ### Paperclip
 
@@ -169,7 +178,8 @@ bin/teardown.sh claude
 bin/teardown.sh vim-plugins   # removes cloned plugin dirs from source/.vim/
 bin/teardown.sh tmux          # removes cloned tmux plugins; keeps saved sessions
 bin/teardown.sh bats          # removes cloned bats from source/.bats/
-bin/teardown.sh python        # removes base-dev and base-ml conda environments
+bin/teardown.sh python        # removes uv's global tools and its managed Python 3.14
+bin/teardown.sh ml            # removes ~/.venvs/ml
 bin/teardown.sh nvm           # removes nvm and all installed Node.js versions
 bin/teardown.sh paperclip     # unlinks config; leaves the CLI, service and instance data
 

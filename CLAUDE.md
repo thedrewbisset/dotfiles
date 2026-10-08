@@ -20,7 +20,7 @@ The project is organized around **recipes** - bash scripts that handle specific 
 - **Dotfiles recipe** (`recipes/dotfiles`): Creates symlinks from `source/` to `$HOME`, with conflict resolution
 - **Vim plugins recipe** (`recipes/vim-plugins`): Manages vim 8 plugins using git repositories in `source/.vim/pack/core/`
 - **Homebrew recipe** (`recipes/homebrews`): Installs development tools via homebrew
-- **Language runtimes**: Separate recipes for Ruby (rbenv), Elixir (kiex), Python (miniconda)
+- **Language runtimes**: Separate recipes for Ruby (rbenv), Elixir (kiex), Python (uv; see README's Python section)
 
 ## Common Commands
 
