@@ -82,6 +82,11 @@ the save. Two decisions to know before changing either:
 alone — that is data, not an installed artifact, and it lives outside the plugin
 directory anyway.
 
+The bindings, the recovery runbook, and the fix for a server that has lost its socket
+are in [`docs/tmux.md`](docs/tmux.md). One thing it covers that bites in practice: a
+server that was already running when the plugins were installed does not have them
+until the config is reloaded (`prefix + r`).
+
 ---
 
 ## Installation
