@@ -1,0 +1,13 @@
+# Routes directories to git identities. Copy to .gitconfig-identities (without
+# .example) and edit. The real file is gitignored: its directory names and
+# identity names say which accounts one person operates, and this repository
+# is public.
+#
+# Each target is a copy of .gitconfig-identity.example. Later entries win, so
+# keep the default first.
+
+[include]
+  path = ~/.gitconfig-personal
+
+[includeIf "gitdir:~/dev/projects/<group>/"]
+  path = ~/.gitconfig-<group>
