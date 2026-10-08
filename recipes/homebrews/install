@@ -48,6 +48,7 @@ sip redis
 sip ripgrep
 sip ruby-build
 sip shellcheck
+sip supabase/tap/supabase
 sip tmux
 sip vim
 sip wget
