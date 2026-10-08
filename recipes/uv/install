@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+# uv manages every Python we run; Homebrew's python@3.14 stays only because
+# other formulae depend on it. recipes/homebrews also installs uv, so either
+# recipe can run first.
+UV_PYTHON_VERSION="3.14"
+
+if command -v uv &>/dev/null; then
+  echo "uv already installed ($(uv --version))"
+else
+  echo "Installing uv..."
+  brew install uv
+fi
+
+# Requires a uv-managed build, so Homebrew's python@3.14 on PATH never stands
+# in for it.
+uv python install --managed-python "$UV_PYTHON_VERSION"
+
+echo "uv setup complete (python $(uv python find --managed-python "$UV_PYTHON_VERSION"))"

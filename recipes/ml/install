@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+
+source "$PWD/recipes/uv/install"
+
+ML_VENV="$HOME/.venvs/ml"
+
+echo "Syncing ML environment into $ML_VENV..."
+UV_PROJECT_ENVIRONMENT="$ML_VENV" uv sync --project "$PWD/recipes/ml"
+
+echo "ML environment ready. Activate with: source $ML_VENV/bin/activate"

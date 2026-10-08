@@ -1,0 +1,33 @@
+# The ML hacking environment, synced to ~/.venvs/ml by recipes/ml/install.
+# Not a package; uv.lock is gitignored, so versions float until one is pinned
+# here. Add packages with: uv add --project recipes/ml <package>
+# tensorflow is left out: it has no macOS arm64 wheels for Python 3.15, which
+# requires-python admits.
+[project]
+name = "ml"
+version = "0"
+requires-python = ">=3.14"
+dependencies = [
+  "anthropic",
+  "gguf",
+  "jupyter",
+  "langchain",
+  "langchain-text-splitters",
+  "lxml",
+  "matplotlib",
+  "notebook",
+  "numpy",
+  "pandas",
+  "scikit-learn",
+  "seaborn",
+  "tiktoken",
+  "torch",
+  "torchaudio",
+  "torchvision",
+  "tqdm",
+  "transformers",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]

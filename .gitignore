@@ -54,3 +54,9 @@ scripts/denylist.local.txt
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Claude Code worktrees, created inside the checkout they branch from
+.claude/worktrees/
+
+# The ML environment floats by design; see recipes/ml/pyproject.toml
+recipes/ml/uv.lock

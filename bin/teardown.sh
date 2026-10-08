@@ -28,7 +28,8 @@ if [[ "$RECIPE" == "all" ]]; then
   # Included even though install 'all' skips paperclip: teardown only removes
   # symlinks, so cleaning up after an opt-in install costs nothing.
   source "$PWD/recipes/paperclip/teardown"
-  for recipe in oh-my-zsh homebrews kiex rubies miniconda nix; do
+  # ml is left out: unlike paperclip, its teardown deletes a whole environment.
+  for recipe in oh-my-zsh homebrews kiex rubies uv nix; do
     echo "No teardown available for recipe: $recipe (remove manually)"
   done
 else
@@ -60,7 +61,10 @@ else
     paperclip)
       source "$PWD/recipes/paperclip/teardown"
       ;;
-    oh-my-zsh|homebrews|kiex|rubies|miniconda|nix|zsh)
+    ml)
+      source "$PWD/recipes/ml/teardown"
+      ;;
+    oh-my-zsh|homebrews|kiex|rubies|uv|nix|zsh)
       echo "No teardown available for recipe: $RECIPE (remove manually)"
       ;;
     "")

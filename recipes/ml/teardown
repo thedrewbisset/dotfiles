@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+ml_venv="$HOME/.venvs/ml"
+
+echo "Tearing down ML environment..."
+
+if [ -d "$ml_venv" ]; then
+  rm -rf "$ml_venv"
+  echo "Removed: $ml_venv"
+else
+  echo "Nothing to remove: $ml_venv not found"
+fi

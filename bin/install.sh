@@ -32,10 +32,12 @@ while [[ $# -gt 0 ]]; do
       echo "  postgresql  Install PostgreSQL"
       echo "  kiex        Install Elixir version manager"
       echo "  rubies      Install Ruby via rbenv"
-      echo "  python      Install Python via miniconda"
+      echo "  uv          Install uv and its managed Python"
+      echo "  python      Install Python via uv, plus global Python tools"
       echo "  nvm         Install Node.js via nvm"
       echo "  bats        Install bats test framework"
       echo "  paperclip   Install Paperclip agent control plane (not in 'all')"
+      echo "  ml          Create the ML hacking environment (not in 'all')"
       echo ""
       echo "Options:"
       echo "  --target <dir>  Install to an alternate home directory"
@@ -99,6 +101,9 @@ else
     rubies)
       source "$PWD/recipes/rubies/install"
       ;;
+    uv)
+      source "$PWD/recipes/uv/install"
+      ;;
     python)
       source "$PWD/recipes/python/install"
       ;;
@@ -112,6 +117,10 @@ else
     # service with its own API-key config, not baseline machine setup.
     paperclip)
       source "$PWD/recipes/paperclip/install"
+      ;;
+    # Opt-in: an unanchored scratch environment, not something every machine needs.
+    ml)
+      source "$PWD/recipes/ml/install"
       ;;
     "")
       echo "Usage: bin/install.sh [--target <dir>] <recipe|all>"
