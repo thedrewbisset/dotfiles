@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Shared utilities sourced by bin/diskmap. Read-only: nothing here deletes.
+
+DATA_ROOT="/System/Volumes/Data"
+
+# blocked_reason DU_ERROR_TEXT -> what would unblock it.
+# "Operation not permitted" is macOS privacy protection (TCC), which sudo does
+# not lift; "Permission denied" is ordinary ownership, which it does.
+blocked_reason() {
+  case "$1" in
+    *"Operation not permitted"*) echo "needs Full Disk Access" ;;
+    *"Permission denied"*)       echo "needs sudo" ;;
+    *)                           echo "unreadable" ;;
+  esac
+}
+
+# render_tree SIZES BLOCKED ROOT TOTAL_KB THRESHOLD_KB ROOT_LABEL PCENT
+# SIZES: "KB<TAB>PATH" lines (directories and large files) at or above the
+# threshold, largest first.
+# BLOCKED: one unreadable path per line.
+# A TOTAL_KB larger than ROOT's measured size is printed as "undiscoverable".
+render_tree() {
+  awk -F'\t' -v root="$3" -v total="$4" -v thr="$5" -v label="$6" -v pct="$7" '
+    function dirof(p) { sub(/\/[^\/]*$/, "", p); return p == "" ? "/" : p }
+    function gb(kb)   { return sprintf("%.1f GB", kb * 1024 / 1e9) }
+    # A 20-cell bar padded by hand: awk field widths count bytes on some builds,
+    # and the block glyphs are multibyte.
+    function bar(kb,   w, full, i, s, cells) {
+      split("▏ ▎ ▍ ▌ ▋ ▊ ▉", eighth, " ")
+      w = kb / total * 20; full = int(w); s = ""; cells = full
+      for (i = 0; i < full; i++) s = s "█"
+      i = int((w - full) * 8)
+      if (i > 0) { s = s eighth[i]; cells++ }
+      for (; cells < 20; cells++) s = s " "
+      return s
+    }
+    function row(kb, branch, name, warn) {
+      printf "%10s %6.1f%%  %s %s%s%s\n", gb(kb), kb * 100 / total, bar(kb), branch, name, warn
+    }
+    function warnfor(n) { return n > 0 ? "  ⚠ " n " unreadable" : "" }
+    function render(node, prefix,   i, n, c, top, shown, rest, last, extra) {
+      if (isfile[node]) return
+      n = nk[node]; shown = 0
+      for (i = 1; i <= n; i++) shown += size[kid[node, i]]
+      rest = size[node] - shown
+      if (rest * 1024 < 5e7) rest = 0   # rounds to 0.0 GB: noise, not signal
+      extra = (node == root && total > size[root]) ? total - size[root] : 0
+      for (i = 1; i <= n; i++) {
+        c = kid[node, i]
+        top = c
+        # Fold a directory whose usage is essentially one child into one row.
+        while (!isfile[c] && nk[c] == 1 && (size[c] - size[kid[c, 1]]) * 1024 < 5e7)
+          c = kid[c, 1]
+        last = (i == n && rest <= 0 && extra <= 0)
+        row(size[top], prefix (last ? "└─ " : "├─ "), \
+            (node == "/" ? substr(c, 2) : substr(c, length(node) + 2)), warnfor(blk[c]))
+        render(c, prefix (last ? "   " : "│  "))
+      }
+      # With nothing shown beneath a node, its rollup would only repeat its own row.
+      if (n == 0 && extra <= 0) return
+      if (rest > 0)
+        row(rest, prefix (extra > 0 ? "├─ " : "└─ "), \
+            "(other entries, each below " pct "%)", "")
+      if (extra > 0)
+        row(extra, prefix "└─ ", "undiscoverable", "  ⚠ unreadable to this shell")
+    }
+    FNR == NR {
+      p = $2; size[p] = $1; isfile[p] = ($3 == "f")
+      if (p != root) { par = dirof(p); kid[par, ++nk[par]] = p }
+      next
+    }
+    {
+      a = $0
+      while (a != root && a != "/" && a != "") { a = dirof(a); blk[a]++ }
+    }
+    END {
+      row(total, "", label, warnfor(blk[root]))
+      render(root, "")
+    }
+  ' "$1" "$2"
+}

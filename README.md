@@ -235,7 +235,23 @@ bin/diskclean cocoapods      # CocoaPods spec repos, cache, project Pods/
 - Recipes that scan for project artifacts (`npm`, `python`, `rubies`, `build`, `cocoapods`, and `all`) prompt for a base directory to scan, defaulting to `~/dev`. Large project trees can take a few minutes to size.
 - `library`, `simulators`, `homebrews`, and `docker` target `~/Library` and system caches — they don't walk your project tree, so they return quickly.
 - `iOS DeviceSupport` keeps the current (latest) version and only offers older ones; `library` flags iOS device backups as **DATA** since deleting one loses that backup.
-- Docker space is reclaimed via the daemon, but macOS doesn't auto-shrink the `Docker.raw` disk image — reclaim that via Docker Desktop → Settings → Resources → Disk.
+- Docker space is reclaimed via the daemon, but macOS doesn't auto-shrink the `Docker.raw` disk image — reclaim that via Docker Desktop → Settings → Resources → Disk. Under Colima, run `colima ssh -- sudo fstrim -av` instead.
+
+### Finding where space goes
+
+`diskclean` only finds what its recipes know about. `bin/diskmap` is the read-only complement: it accounts for *all* of it.
+
+```bash
+bin/diskmap                              # the data volume (also what `bin/diskmap /` maps)
+bin/diskmap ~/Library                    # any path
+bin/diskmap ~ --usage-above-pcent 5      # coarser: only entries using at least 5% of the path
+```
+
+It prints a heat-map tree of the path. An entry is shown, and expanded further, only if it uses at least the given percentage of the path (default 1); everything smaller rolls up into one line per level, so every level sums to its parent. Directories whose usage is essentially one child fold into a single row, and single files over the threshold are named, so the tree ends where the space actually is.
+
+It never deletes, and it takes one `du` pass (a couple of minutes for the whole volume).
+
+Entries `du` cannot read are marked ⚠ with a count. Their usage is invisible to `du`, so for an arbitrary path it is excluded from every figure and cannot be bounded. Only the volume root has an independent total (APFS's in-use figure), so only there does the tree end in an `undiscoverable` row: in use minus everything measured. Full Disk Access for your terminal (System Settings → Privacy & Security) or a `sudo` run shrinks it.
 
 ---
 
