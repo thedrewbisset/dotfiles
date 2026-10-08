@@ -62,10 +62,8 @@ the symlink it reads. tmux itself does not need to be running.
 
 [tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect) saves the session tree —
 windows, panes, layouts, working directories, and pane contents — to disk, and restores it
-into a server that has lost it. Saves land in `~/.local/share/tmux/resurrect/`; resurrect
-only falls back to the older `~/.tmux/resurrect/` when that directory *already* exists, so
-the path depends on machine history rather than on this config. `@resurrect-dir` pins it
-if that ever matters.
+into a server that has lost it. Saves land in `~/.local/share/tmux/resurrect/` (XDG data),
+pinned with `@resurrect-dir` so the location does not depend on machine history.
 [tmux-continuum](https://github.com/tmux-plugins/tmux-continuum) is the timer that drives
 the save. Two decisions to know before changing either:
 

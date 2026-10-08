@@ -4,7 +4,7 @@
 #
 # Saved session state is deliberately left alone: it is data rather than an
 # installed artifact, and it lives outside this directory anyway
-# (~/.local/share/tmux/resurrect/ by default). Reinstalling brings the plugins
+# (~/.local/share/tmux/resurrect/, pinned in .tmux.conf). Reinstalling brings the plugins
 # back and the saves are still there to restore from.
 
 tmux_plugins="${TARGET_HOME:-$HOME}/.tmux/plugins"
