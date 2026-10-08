@@ -57,3 +57,6 @@ __pycache__/
 
 # Claude Code worktrees, created inside the checkout they branch from
 .claude/worktrees/
+
+# The ML environment floats by design; see recipes/ml/pyproject.toml
+recipes/ml/uv.lock

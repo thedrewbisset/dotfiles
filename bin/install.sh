@@ -37,6 +37,7 @@ while [[ $# -gt 0 ]]; do
       echo "  nvm         Install Node.js via nvm"
       echo "  bats        Install bats test framework"
       echo "  paperclip   Install Paperclip agent control plane (not in 'all')"
+      echo "  ml          Create the ML hacking environment (not in 'all')"
       echo ""
       echo "Options:"
       echo "  --target <dir>  Install to an alternate home directory"
@@ -116,6 +117,10 @@ else
     # service with its own API-key config, not baseline machine setup.
     paperclip)
       source "$PWD/recipes/paperclip/install"
+      ;;
+    # Opt-in: an unanchored scratch environment, not something every machine needs.
+    ml)
+      source "$PWD/recipes/ml/install"
       ;;
     "")
       echo "Usage: bin/install.sh [--target <dir>] <recipe|all>"
