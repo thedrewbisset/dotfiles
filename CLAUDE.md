@@ -44,6 +44,12 @@ bin/install.sh zsh
 - All recipes are designed to be idempotent (safe to run multiple times)
 - The project targets macOS and assumes bash shell environment
 
+## Privacy Gate
+
+`scripts/privacy_gate.py` is a one-way mirror of a copy owned in another repository. Never edit it here — a local edit is silently overwritten by the next mirror. Take changes and false-positive reports to the owning repository's agent, and commit each mirrored copy as is, with its `__version__` in the commit subject.
+
+The deny-list lives at `${XDG_CONFIG_HOME:-$HOME/.config}/exponential/denylist.txt`, shared across repositories and worktrees; `scripts/denylist.local.txt` is only a fallback.
+
 ## SSH Key Setup
 
 After running the dotfiles recipe, generate SSH keys for GitHub access:
