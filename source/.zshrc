@@ -176,9 +176,14 @@ colima-init() {
 # Claude code functions
 # Claude Code - Max subscription (personal/hobby)
 claude-lge() {
+  local identity=~/.claude/settings.identity.json
+  if [[ ! -r $identity ]]; then
+    echo "❌ $identity missing; refusing to start without the identity's limits" >&2
+    return 1
+  fi
   echo "✅ Claude Code → Anthropic Max (personal)"
   unset CLAUDE_CODE_USE_BEDROCK
-  claude --model opus "$@"
+  command claude --model opus --settings "$identity" "$@"
 }
 
 # Claude Code - AWS Bedrock (ChartPro / professional)
@@ -189,8 +194,10 @@ claude-chartpro() {
   AWS_PROFILE=bedrock \
   AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-legacy-token -w)" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0' \
-  claude --model 'us.anthropic.claude-sonnet-5' "$@"
+  command claude --model 'us.anthropic.claude-sonnet-5' "$@"
 }
+
+alias claude='claude-lge'
 
 # Claude Code backup/restore
 alias cb='claude-backup'
