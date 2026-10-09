@@ -51,6 +51,17 @@ Code's live home and holds runtime state (sessions, history, caches, hydrated pl
 that must never enter a repository. `recipes/dotfiles` skips `.claude/` for the same
 reason — symlinking the whole directory would replace that state.
 
+Two launchers in `.zshrc` start Claude Code as one identity or the other:
+
+- `claude-lge` (personal, and what plain `claude` is aliased to) adds
+  `--settings ~/.claude/settings.identity.json`, which sandboxes the session away from
+  paths that identity must never touch. The file comes from the configuration repository;
+  without it the launcher refuses to start.
+- `claude-chartpro` (work, AWS Bedrock) runs without those limits.
+
+Both call `command claude`, so the alias never recurses. The IDE extension, desktop app and
+`command claude` itself bypass the launchers.
+
 ### tmux session persistence
 
 `source/.tmux.conf` declares its plugins with tpm (`set -g @plugin`), and `recipes/tmux`
