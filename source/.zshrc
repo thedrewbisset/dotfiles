@@ -178,7 +178,7 @@ colima-init() {
 claude-lge() {
   echo "✅ Claude Code → Anthropic Max (personal)"
   unset CLAUDE_CODE_USE_BEDROCK
-  claude "$@"
+  claude --model opus "$@"
 }
 
 # Claude Code - AWS Bedrock (ChartPro / professional)
@@ -188,9 +188,8 @@ claude-chartpro() {
   AWS_REGION=us-west-2 \
   AWS_PROFILE=bedrock \
   AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-legacy-token -w)" \
-  ANTHROPIC_MODEL='us.anthropic.claude-sonnet-5' \
   ANTHROPIC_DEFAULT_HAIKU_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0' \
-  claude "$@"
+  claude --model 'us.anthropic.claude-sonnet-5' "$@"
 }
 
 # Claude Code backup/restore
