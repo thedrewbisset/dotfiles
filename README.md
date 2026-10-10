@@ -279,6 +279,22 @@ It never deletes, and it takes one `du` pass (a couple of minutes for the whole 
 
 Entries `du` cannot read are marked ⚠ with a count. Their usage is invisible to `du`, so for an arbitrary path it is excluded from every figure and cannot be bounded. Only the volume root has an independent total (APFS's in-use figure), so only there does the tree end in an `undiscoverable` row: in use minus everything measured. Full Disk Access for your terminal (System Settings → Privacy & Security) or a `sudo` run shrinks it.
 
+### Finding where memory goes
+
+`bin/memmap` is the same idea for memory, and `bin/memclean` is its `diskclean`:
+
+```bash
+bin/memmap               # top 3 owners overall, then every dev unit
+bin/memmap --min-mb 200  # roll up dev units below 200 MB
+bin/memclean             # fzf multi-select of what to stop, then a confirmation manifest
+```
+
+Figures are `top`'s footprint, the number Activity Monitor shows, not `ps` RSS. The top 3 counts each app with all its helpers (a browser's dozens of content processes are one row), whatever it is. The dev section groups processes by kind (node, python, ruby, beam, java, database, lsp, claude, simulator, the VM), folding each into its nearest ancestor of the same kind, so `npm run dev` and its `next-server` child are one unit, labelled with the directory it runs in.
+
+The colima VM is broken down by container group (compose project, else Supabase project, else container name). Memory a stopped container used stays inside the VM, so the gap is shown as held by the VM: only `colima stop` returns it to macOS.
+
+`memclean` stops containers with `docker stop`, the VM with `colima stop`, dev units with `SIGTERM`, and top apps by asking them to quit. The terminal and any session it runs inside are never offered. Neither are processes owned by another user, such as a root-installed postgres: there is no sudo flow yet, so `memmap` shows them but they cannot be stopped from here.
+
 ---
 
 ## Claude Code backup and restore
