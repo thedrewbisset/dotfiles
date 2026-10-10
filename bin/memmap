@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Read-only map of where memory goes: the top owners overall, then dev processes. Never kills.
+set -euo pipefail
+
+DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$DOTFILES_ROOT/bin/lib/memmap_tools"
+
+usage() {
+  echo "Usage: bin/memmap [--min-mb N]"
+  echo "  Shows the 3 largest owners of memory (an app counts all its helpers), then every"
+  echo "  dev unit (a process tree of one kind: node, python, postgres, the colima VM...)."
+  echo "  Units below N MB (default 50) are rolled up per kind. bin/memclean stops them."
+  exit 1
+}
+
+MIN_MB=50
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --min-mb) MIN_MB="${2:?}"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+mem_snapshot "$WORK/snap"
+mem_units "$WORK/snap" > "$WORK/units"
+mem_containers > "$WORK/containers"
+# One lsof call names each unit's working directory: usually the project it belongs to.
+roots="$(awk -F'\t' '$1 != "vm" { printf "%s%s", (n++ ? "," : ""), $4 }' "$WORK/units")"
+[[ -n "$roots" ]] && { lsof -a -d cwd -p "$roots" -Fpn 2>/dev/null || true; } > "$WORK/cwd"
+touch "$WORK/cwd"
+
+total_kb=$(( $(sysctl -n hw.memsize) / 1024 ))
+echo "Memory: $(human_kb "$total_kb") installed, $(sysctl -n kern.memorystatus_level)% free"
+echo ""
+echo "Top 3 overall"
+mem_owners "$WORK/snap" | head -3 | while IFS=$'\t' read -r owner kb count; do
+  printf "  %8s  %s (%d process%s)\n" "$(human_kb "$kb")" "$owner" "$count" "$([[ $count -eq 1 ]] || echo es)"
+done
+echo ""
+echo "Dev"
+
+awk -F'\t' -v min="$((MIN_MB * 1024))" -v home="$HOME" '
+  function h(k) { return k >= 1048576 ? sprintf("%.1f GB", k / 1048576) : sprintf("%d MB", k / 1024) }
+  # etime is [[dd-]hh:]mm:ss
+  function up(e,   d, n, t) {
+    d = 0; if (e ~ /-/) { d = e; sub(/-.*/, "", d); sub(/^[0-9]+-/, "", e) }
+    n = split(e, t, ":")
+    if (d) return (d + 0) "d " (n == 3 ? t[1] + 0 : 0) "h"
+    if (n == 3) return (t[1] + 0) "h " (t[2] + 0) "m"
+    return (t[1] + 0) "m"
+  }
+  function cut(s, w) { gsub(/ +$/, "", s); return length(s) > w ? substr(s, 1, w - 1) "…" : s }
+  FILENAME ~ /cwd$/ { if (/^p/) p = substr($0, 2); else if (/^n/) { d = substr($0, 2); sub("^" home, "~", d); cwd[p] = d }; next }
+  FILENAME ~ /containers$/ { cn++; cname[cn] = $1; ckb[cn] = $2; ccount[cn] = $3; csum += $2; next }
+  {
+    k = $1
+    if (!(k in seen)) { seen[k] = 1; kinds[++nk] = k }
+    tot[k] += $2; units[k]++
+    if ($2 >= min || k == "vm") { i = ++shown[k]; row[k, i] = $0 } else { small[k] += $2; nsmall[k]++ }
+  }
+  END {
+    for (j = 1; j <= nk; j++) {
+      k = kinds[j]
+      printf "  %-10s %8s  (%d unit%s)\n", k, h(tot[k]), units[k], (units[k] == 1 ? "" : "s")
+      for (i = 1; i <= shown[k]; i++) {
+        split(row[k, i], f, "\t")
+        if (k == "vm") {
+          printf "    %8s  pid %-6s up %-8s\n", h(f[2]), f[4], up(f[5])
+          for (c = 1; c <= cn; c++)
+            printf "      %8s  container %s (%d)\n", h(ckb[c]), cname[c], ccount[c]
+          if (f[2] > csum)
+            printf "      %8s  held by the VM, not by containers (only colima stop returns it)\n", h(f[2] - csum)
+          continue
+        }
+        printf "    %8s  pid %-6s up %-8s %2d proc  %s  %s\n", h(f[2]), f[4], up(f[5]), f[3], \
+          ((f[4] in cwd) ? cwd[f[4]] : "?"), cut(f[7], 60)
+      }
+      if (nsmall[k]) printf "    %8s  (%d smaller units, each below %d MB)\n", h(small[k]), nsmall[k], min / 1024
+    }
+    if (!nk) print "  (no dev processes running)"
+  }
+' "$WORK/cwd" "$WORK/containers" "$WORK/units"
+
+echo ""
+echo "Read-only. To stop any of these: bin/memclean"
