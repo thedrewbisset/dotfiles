@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Interactive stop for what bin/memmap shows: containers, the colima VM, dev units, top apps.
+set -euo pipefail
+
+DOTFILES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$DOTFILES_ROOT/bin/lib/memmap_tools"
+
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+mem_snapshot "$WORK/snap"
+mem_units "$WORK/snap" > "$WORK/units"
+
+# This shell's ancestors: the terminal and any session running memclean are never offered.
+self=",$$," p=$$
+while [[ "$p" -gt 1 ]]; do
+  p="$(ps -o ppid= -p "$p" | tr -d ' ')"
+  self="$self$p,"
+done
+
+# Entries: CATEGORY<TAB>LABEL<TAB>SIZE<TAB>UP<TAB>STOP_CMD
+entries=()
+while IFS=$'\t' read -r project kb count ids; do
+  entries+=("container"$'\t'"$project ($count)"$'\t'"$(human_kb "$kb")"$'\t'"-"$'\t'"docker stop $ids >/dev/null")
+done < <(mem_containers)
+
+while IFS=$'\t' read -r kind kb count root etime pids args; do
+  skip=0
+  IFS=, read -ra plist <<< "$pids"
+  for pid in "${plist[@]}"; do [[ "$self" == *",$pid,"* ]] && skip=1; done
+  [[ $skip -eq 1 ]] && continue
+  # No sudo flow yet, so another user's processes (root postgres) are not offered.
+  [[ "$(ps -o uid= -p "$root" | tr -d " ")" == "$(id -u)" ]] || continue
+  if [[ "$kind" == "vm" ]]; then
+    pgrep -qf 'colima daemon' || continue
+    entries+=("colima VM"$'\t'"the whole VM and every container in it"$'\t'"$(human_kb "$kb")"$'\t'"$etime"$'\t'"colima stop")
+    continue
+  fi
+  cwd="$( { lsof -a -d cwd -p "$root" -Fn 2>/dev/null || true; } | sed -n "s|^n||p" | sed "s|^$HOME|~|")"
+  entries+=("$kind"$'\t'"pid $root ($count proc) ${cwd:-?}  ${args:0:60}"$'\t'"$(human_kb "$kb")"$'\t'"$etime"$'\t'"kill -TERM ${pids//,/ }")
+done < "$WORK/units"
+
+# Top apps, quit the way their own menu would (they may ask to save).
+while IFS=$'\t' read -r owner kb count; do
+  grep -qF "/$owner.app/" "$WORK/snap" || continue
+  osascript -e "id of app \"$owner\"" >/dev/null 2>&1 || continue
+  entries+=("app"$'\t'"$owner ($count processes)"$'\t'"$(human_kb "$kb")"$'\t'"-"$'\t'"osascript -e 'quit app \"$owner\"'")
+done < <(mem_owners "$WORK/snap" | grep -v '^colima VM' | head -3)
+
+if [[ ${#entries[@]} -eq 0 ]]; then
+  echo "Nothing found to stop."
+  exit 0
+fi
+
+display_lines=()
+for entry in "${entries[@]}"; do
+  IFS=$'\t' read -r category label size up _cmd <<< "$entry"
+  display_lines+=("$(printf "%-10s %-9s %-12s %s" "$category" "$size" "$up" "$label")")
+done
+header="$(printf "%-10s %-9s %-12s %s" "CATEGORY" "SIZE" "UP" "LABEL")"
+
+selected=$(printf '%s\n' "${display_lines[@]}" | \
+  fzf --multi \
+      --header="$header
+TAB: select/deselect  Enter: confirm  Ctrl-C: cancel" \
+      --prompt="Select items to stop > " \
+      --height=80% \
+      --layout=reverse \
+      --no-sort) || true
+
+if [[ -z "$selected" ]]; then
+  echo "Cancelled."
+  exit 0
+fi
+
+selected_entries=()
+while IFS= read -r line; do
+  for i in "${!display_lines[@]}"; do
+    if [[ "${display_lines[$i]}" == "$line" ]]; then
+      selected_entries+=("${entries[$i]}")
+      break
+    fi
+  done
+done <<< "$selected"
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════════════"
+echo "  ITEMS SELECTED TO STOP"
+echo "═══════════════════════════════════════════════════════════════════════"
+for entry in "${selected_entries[@]}"; do
+  IFS=$'\t' read -r category label size up cmd <<< "$entry"
+  printf "  %-10s %-9s %s\n  %-10s %-9s → %s\n" "$category" "$size" "$label" "" "" "$cmd"
+done
+echo "═══════════════════════════════════════════════════════════════════════"
+echo ""
+
+printf "Stop these? [y/N] "
+read -r confirm
+if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+echo ""
+failed=0
+for entry in "${selected_entries[@]}"; do
+  IFS=$'\t' read -r _category label _size _up cmd <<< "$entry"
+  if eval "$cmd" 2>/dev/null; then
+    echo "  ✓ Stopped: $label"
+  else
+    echo "  ✗ Failed:  $label"
+    (( failed++ )) || true
+  fi
+done
+
+echo ""
+echo "Done. $(( ${#selected_entries[@]} - failed )) stopped, $failed failed."
