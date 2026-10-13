@@ -7,6 +7,9 @@ set undofile
 set undolevels=10000
 set undoreload=10000
 
+" Keep swap files out of working directories; // names them by full path
+set directory=$HOME/.vim/swap//
+
 " Use shorter delay times
 set timeout
 set timeoutlen=1000 " mapping delay

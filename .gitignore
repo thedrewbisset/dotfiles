@@ -7,6 +7,8 @@ source/.vim/pack/core/opt
 !source/.vim/pack/core/opt/.keep
 source/.vim/undo
 !source/.vim/undo/.keep
+source/.vim/swap
+!source/.vim/swap/.keep
 
 # Git worktrees
 **/.worktrees/
