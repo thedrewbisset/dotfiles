@@ -14,3 +14,8 @@
 # Optional. Omit to use the default key from .gitconfig.
 [core]
   sshCommand = ssh -i ~/.ssh/<key-name> -o IdentitiesOnly=yes
+
+# Optional. The gh login for repos under this identity, read by the
+# exponential-core plugin's gh wrapper. Omit to let it find the account itself.
+[gh]
+  account = <github-login>
