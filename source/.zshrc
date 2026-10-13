@@ -197,6 +197,15 @@ claude-chartpro() {
   command claude --model 'us.anthropic.claude-sonnet-5' "$@"
 }
 
+# Claude Code worktrees, dispatched to each config repo's own launcher
+worktree-lge() {
+  ~/dev/projects/lge/exponential-claude-config/bin/claude-worktree "$@"
+}
+
+worktree-chartpro() {
+  ~/dev/projects/chartpro/repositories/chartpro-claude-agent-config/bin/claude-worktree "$@"
+}
+
 alias claude='claude-lge'
 
 # Claude Code backup/restore
