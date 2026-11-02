@@ -188,12 +188,18 @@ claude-lge() {
 
 # Claude Code - AWS Bedrock (ChartPro / professional)
 claude-chartpro() {
+  local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/claude-chartpro"
+  if [[ ! -r "$config_dir/settings.json" ]]; then
+    echo "❌ $config_dir/settings.json missing; refusing to start without chartpro's config" >&2
+    return 1
+  fi
   echo "✅ Claude Code → AWS Bedrock (work)"
   CLAUDE_CODE_USE_BEDROCK=1 \
   AWS_REGION=us-west-2 \
   AWS_PROFILE=bedrock \
   AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-legacy-token -w)" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0' \
+  CLAUDE_CONFIG_DIR="$config_dir" \
   command claude --model 'us.anthropic.claude-sonnet-5' "$@"
 }
 
