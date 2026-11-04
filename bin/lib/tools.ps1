@@ -102,7 +102,7 @@ function Test-Admin {
 
 function Assert-Admin([string]$Recipe) {
   if (-not (Test-Admin)) {
-    throw "The $Recipe recipe changes system services and the firewall. Run it from an elevated PowerShell (Run as administrator)."
+    throw "The $Recipe recipe changes machine-wide settings. Run it from an elevated PowerShell (Run as administrator)."
   }
 }
 

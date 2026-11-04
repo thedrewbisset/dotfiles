@@ -34,6 +34,8 @@ $Recipes = [ordered]@{
   uv    = 'Install uv and a uv-managed Python (provides python3 for the hooks)'
   hooks = 'Enable the privacy gate git hooks'
   claude = 'Install the Claude Code CLI (agent config is managed elsewhere)'
+  # Opt-in: creates a disk, and normally runs once before the repo moves onto it.
+  devdrive = 'Create the Dev Drive (ReFS virtual disk) and its layout (run elevated)'
   # Opt-in: opens a network service, so it is never installed as a side effect of 'all'.
   'openssh-server' = 'LAN-only, key-only SSH server (run elevated)'
 }

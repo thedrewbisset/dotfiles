@@ -24,3 +24,11 @@ if (-not $runs) {
 }
 $active = (Get-ChildItem (Join-Path $Root 'hooks') -File | Select-Object -ExpandProperty Name) -join ' '
 Write-Host "core.hooksPath -> hooks/ (active: $active)"
+
+# The gate refuses every commit until a deny-list exists. Creating one is yours to do
+# (it lists names to keep out of this public repo), so this only says so up front.
+$configHome = if ($env:XDG_CONFIG_HOME) { $env:XDG_CONFIG_HOME } else { Join-Path $HOME '.config' }
+$denylist = Join-Path $configHome 'exponential\denylist.txt'
+if (-not (Test-Path $denylist) -and -not (Test-Path (Join-Path $Root 'scripts\denylist.local.txt'))) {
+  Write-Warning "No deny-list yet, so the privacy gate will block every commit. Copy scripts\denylist.local.txt.example to $denylist and fill it in (see README, Privacy gate)."
+}
