@@ -30,3 +30,4 @@ git@github.com
 # Config keys and dotfile names that look like hostnames.
 storage.local
 zshrc.local
+config.local
