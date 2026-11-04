@@ -1,6 +1,6 @@
 # Dotfiles
 
-Bootstrap and maintain a macOS development environment. Recipes handle installation of dotfiles, tools, and configuration. All recipes are idempotent — safe to run multiple times.
+Bootstrap and maintain a macOS development environment, with a smaller [Windows](#windows) counterpart. Recipes handle installation of dotfiles, tools, and configuration. All recipes are idempotent — safe to run multiple times.
 
 ---
 
@@ -204,6 +204,76 @@ bin/teardown.sh --target /tmp/test-home dotfiles
 ```
 
 Recipes that install global packages (homebrews, rubies, postgresql, etc.) print a message instead of attempting teardown.
+
+---
+
+## Windows
+
+Windows recipes are PowerShell files beside the bash ones — `recipes/<name>/install.ps1` and `teardown.ps1` — run by `bin/install.ps1` and `bin/teardown.ps1` with the same `<recipe|all>` interface. Neither installer reads the other platform's files. The Windows side is deliberately small: a recipe is added when it is needed there, not for parity.
+
+They target Windows PowerShell 5.1, which ships with Windows, and install through `winget`, so a fresh machine needs nothing first. Re-running a winget recipe upgrades the package.
+
+| Recipe | In `all` | What it does |
+|---|---|---|
+| `git` | yes | Git for Windows. Installed with `core.autocrlf=false` and Windows' own OpenSSH, both in Git's system config so `~/.gitconfig` stays shared with macOS |
+| `gh` | yes | GitHub CLI, config pinned to `~\.config\gh`; offers to log in |
+| `uv` | yes | uv and a uv-managed Python 3.14, which provides the `python3` the git hooks call |
+| `hooks` | yes | The privacy gate hooks. Fails if `python3` does not actually run |
+| `claude` | yes | Claude Code CLI via Anthropic's native installer |
+| `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
+
+`git` and `gh` have teardowns that uninstall the package; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose.
+
+### First run
+
+Git is a recipe, so the repo arrives as a zip and becomes a clone afterwards:
+
+```powershell
+# Download and unpack the main-branch zip from GitHub to the dev root, e.g. D:\src\dotfiles, then:
+Get-ChildItem -Recurse -File | Unblock-File     # clear the downloaded-from-internet flag
+powershell -ExecutionPolicy Bypass -File bin\install.ps1 git
+
+git init -b main
+git remote add origin https://github.com/<owner>/dotfiles.git
+git fetch origin
+git reset origin/main                           # keeps the working tree; local edits show as a diff
+git branch -u origin/main main
+
+powershell -ExecutionPolicy Bypass -File bin\install.ps1 all
+```
+
+The `hooks` recipe needs the deny-list described in [Privacy gate](#privacy-gate) before the first commit.
+
+A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) makes a good dev root: one ReFS virtual disk for source, caches and model weights, with lighter antivirus scanning. That speed-up comes from Microsoft Defender's performance mode; a third-party antivirus does not provide it, and heuristic engines tend to quarantine installer scripts like these.
+
+### Gotchas
+
+- **AppData redirection.** Packaged (MSIX) apps — the Claude desktop app among them — silently redirect `%APPDATA%` and `%LOCALAPPDATA%` writes made by any process they launch into the app's private storage. A tool installed from such a terminal ends up somewhere your own shells cannot see. Recipes pin tool state elsewhere with `Set-UserEnv` (`bin/lib/tools.ps1`), preferring the paths the tool uses on macOS; registry writes are not redirected, which is why that works. When in doubt, run recipes from a plain terminal or an SSH session.
+- **The python stubs.** `WindowsApps` holds `python.exe` / `python3.exe` stubs that only open the Microsoft Store. The `uv` recipe puts `~\.local\bin` first on the user `PATH` so uv's Python wins.
+- **Line endings.** `.gitattributes` forces LF everywhere. Most bash recipes have no extension, so without it a CRLF checkout breaks them on the next commit to macOS.
+
+### SSH server
+
+`bin\install.ps1 openssh-server`, from an elevated PowerShell:
+
+- Installs Windows' built-in OpenSSH Server and writes `sshd_config` from [`recipes/openssh-server/sshd_config`](recipes/openssh-server/sshd_config): keys only, the current user only, local port forwarding only (enough for VS Code Remote-SSH). The new config is checked with `sshd -t` before it replaces the live one; the original is kept as `sshd_config.pre-dotfiles`.
+- Replaces the feature's own firewall rule, which allows every network and address, with TCP 22 from the **local subnet on Private networks only**. It never changes a network's Public/Private type — trusting a network is your decision — and warns if the active one is Public.
+- Copies `~\.ssh\authorized_keys` into `C:\ProgramData\ssh\administrators_authorized_keys`, with an Administrators/SYSTEM-only ACL. Windows sshd ignores the per-user file for administrators. Re-run the recipe after adding a key.
+- Makes PowerShell the login shell and prints the host key fingerprint to check on first connect.
+
+To keep traffic off the WAN, also make sure the router forwards no port to the machine and has UPnP off. On the client, give the machine its own key and put the host entry in `~/.ssh/config.local`, which `source/.ssh/config` includes but this repo never tracks, since it holds an IP and username:
+
+```
+Host <alias>
+  HostName <lan-ip>
+  User <windows-user>
+  IdentityFile ~/.ssh/<alias>
+  IdentitiesOnly yes
+```
+
+`IdentitiesOnly yes` matters: the server allows three attempts, and an agent holding several GitHub keys uses them all up first.
+
+`bin\teardown.ps1 openssh-server` stops and disables sshd, removes the firewall rule, restores the original config, and offers to remove the Windows feature. Host keys are kept, so a reinstall keeps the same fingerprint.
 
 ---
 
