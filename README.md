@@ -220,31 +220,16 @@ They target Windows PowerShell 5.1, which ships with Windows, and install throug
 | `uv` | yes | uv and a uv-managed Python 3.14, which provides the `python3` the git hooks call |
 | `hooks` | yes | The privacy gate hooks. Fails if `python3` does not actually run |
 | `claude` | yes | Claude Code CLI via Anthropic's native installer |
+| `devdrive` | no | A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) at `D:` (expandable virtual disk, 64 GB cap) with `src`, `caches`, `models`, re-attached at boot. Run elevated, normally first |
 | `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
 
-`git` and `gh` have teardowns that uninstall the package; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose.
+`git` and `gh` have teardowns that uninstall the package; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose.
 
 ### First run
 
-Git is a recipe, so the repo arrives as a zip and becomes a clone afterwards:
+**[`docs/windows.md`](docs/windows.md)** is the runbook: the order that works, from a zip of this repo on a fresh machine to an SSH login from another computer, including the manual steps (antivirus, network trust, router, keys, deny-list) and why each is manual. In short: Defender only, `devdrive` from the unpacked zip, move the repo to `D:\src`, `git`, turn the folder into a clone, then `all`.
 
-```powershell
-# Download and unpack the main-branch zip from GitHub to the dev root, e.g. D:\src\dotfiles, then:
-Get-ChildItem -Recurse -File | Unblock-File     # clear the downloaded-from-internet flag
-powershell -ExecutionPolicy Bypass -File bin\install.ps1 git
-
-git init -b main
-git remote add origin https://github.com/<owner>/dotfiles.git
-git fetch origin
-git reset origin/main                           # keeps the working tree; local edits show as a diff
-git branch -u origin/main main
-
-powershell -ExecutionPolicy Bypass -File bin\install.ps1 all
-```
-
-The `hooks` recipe needs the deny-list described in [Privacy gate](#privacy-gate) before the first commit.
-
-A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) makes a good dev root: one ReFS virtual disk for source, caches and model weights, with lighter antivirus scanning. That speed-up comes from Microsoft Defender's performance mode; a third-party antivirus does not provide it, and heuristic engines tend to quarantine installer scripts like these.
+A Dev Drive's lighter scanning comes from Microsoft Defender's performance mode. A third-party antivirus does not provide it, and heuristic engines tend to quarantine installer scripts like these.
 
 ### Gotchas
 
