@@ -122,12 +122,11 @@ powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
   git config user.email <email>
   ```
 
-- **Pushing over HTTPS** with gh's login, without writing a credential helper into
-  `~/.gitconfig` (on macOS that file is the repo's `source/.gitconfig`):
-
-  ```powershell
-  git -c credential.helper= -c 'credential.https://github.com.helper=!gh auth git-credential' push
-  ```
+- **Pushing over HTTPS** needs no flags: the `gh` recipe points git's credential
+  helper for `github.com` and `gist.github.com` at gh, so gh's own login answers
+  instead of the Git Credential Manager. Every other host keeps GCM. The recipe skips
+  this and says so if `~/.gitconfig` is a link, since on macOS that is the repo's
+  tracked `source/.gitconfig` and this is machine-local configuration.
 
 ## 5. Claude Code (recipe)
 
@@ -277,6 +276,12 @@ bin\teardown.ps1 devdrive         # elevated, from a copy of the repo NOT on D:
   stop working there. Re-run the `uv` recipe elevated or over SSH; a junction created
   that way works for both. It comes back when uv upgrades the patch release from a
   non-elevated shell, and the recipe warns when run non-elevated.
+- **"Unable to persist credentials with the 'wincredman' credential store"**, then
+  `could not read Username for 'https://github.com'`: the Git Credential Manager is
+  answering, and it cannot reach Credential Manager from an SSH logon session or
+  prompt without a tty. Re-run the `gh` recipe, which points the helper at gh
+  instead; `git config --get-urlmatch credential https://github.com` should print
+  `!gh auth git-credential`.
 - **"Permission denied (publickey)"**: the key is not in
   `administrators_authorized_keys` yet; re-run the `openssh-server` recipe elevated
   (6d). **"Too many authentication failures"**: add `IdentitiesOnly yes` (6c).
