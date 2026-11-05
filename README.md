@@ -216,6 +216,7 @@ They target Windows PowerShell 5.1, which ships with Windows, and install throug
 | Recipe | In `all` | What it does |
 |---|---|---|
 | `git` | yes | Git for Windows. Installed with `core.autocrlf=false` and Windows' own OpenSSH, both in Git's system config so `~/.gitconfig` stays shared with macOS |
+| `dotfiles` | yes | Links the three files Windows reads (`.gitconfig`, `.git-excludes-file`, `.ssh/config`) plus `source/windows/profile.ps1`, and sets `DEV_ROOT`. Needs symlink privilege: run it over SSH or elevated |
 | `gh` | yes | GitHub CLI, config pinned to `~\.config\gh`; offers to log in |
 | `uv` | yes | uv and a uv-managed Python 3.14, which provides the `python3` the git hooks call |
 | `hooks` | yes | The privacy gate hooks. Fails if `python3` does not actually run |
@@ -223,7 +224,11 @@ They target Windows PowerShell 5.1, which ships with Windows, and install throug
 | `devdrive` | no | A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) at `D:` (expandable virtual disk, 64 GB cap) with `src`, `caches`, `models`, re-attached at boot. Run elevated, normally first |
 | `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
 
-Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
+Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `dotfiles` removes only links that point inside this repo, restoring any `.pre-dotfiles` copy it made; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
+
+Three files in `source/` are linked here, because they are the ones Windows tools read. The rest belong to tools this side does not have — zsh, oh-my-zsh, tmux, ruby, psql, bats, paperclip, vim — and `.claude` is skipped for the same reason as on macOS: it is Claude Code's live home, not config. `source/windows/` holds the Windows-only files that have no `$HOME` dotfile path of their own; `profile.ps1` is linked to `$PROFILE.CurrentUserAllHosts`, read from `$PROFILE` rather than built by hand because Documents is often redirected into OneDrive.
+
+The dev root is `DEV_ROOT` (`D:\src`, following `DEVDRIVE_LETTER`). `sshd` has no working-directory option and drops a login in `%USERPROFILE%`, so the linked profile moves there — but only when the shell starts in the home directory, so a terminal opened inside a project stays put and an explicit `cd` in an SSH command still wins, and only when the drive is attached, since the boot-time mount task can be slower than the first login.
 
 ### First run
 

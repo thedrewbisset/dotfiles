@@ -18,7 +18,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 # deliberate, one-at-a-time use are left out of 'all'.
 $All = @()
 
-$Recipes = @('claude', 'hooks', 'uv', 'gh', 'git', 'devdrive', 'openssh-server')
+$Recipes = @('claude', 'hooks', 'uv', 'gh', 'dotfiles', 'git', 'devdrive', 'openssh-server')
 
 if (-not $Recipe) { Write-Host 'Usage: bin\teardown.ps1 [-Target <dir>] <recipe|all>'; exit 1 }
 

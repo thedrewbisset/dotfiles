@@ -58,6 +58,99 @@ function Add-UserPathEntry([string]$Dir) {
   Update-SessionPath
 }
 
+# True when a symlink can actually be created in $Dir.
+#
+# Creating one needs SeCreateSymbolicLinkPrivilege, which only Administrators hold:
+# UAC strips it from an interactive logon's filtered token, while an SSH logon keeps
+# it (sshd's logon is not filtered), and Developer Mode changes the rules again. None
+# of that is inferred here -- this creates one throwaway link with the same call the
+# caller will use, so the answer cannot disagree with what happens next.
+function Test-CanSymlink([string]$Dir, [string]$ProbeTarget) {
+  $probe = Join-Path $Dir ('.dotfiles-link-probe-' + [guid]::NewGuid().ToString('N'))
+  try {
+    New-Item -ItemType SymbolicLink -Path $probe -Target $ProbeTarget -ErrorAction Stop | Out-Null
+    return $true
+  } catch {
+    return $false
+  } finally {
+    # Deletes the link, never what it points at.
+    if (Get-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue) {
+      Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+
+# Returns the path a link points at, or $null for anything that is not a link.
+# 5.1 reports .Target as a collection, so take the first entry.
+function Get-LinkTarget([string]$Path) {
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+  if (-not $item) { return $null }
+  if (-not $item.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) { return $null }
+  return @($item.Target)[0]
+}
+
+# Links $TargetPath -> $SourcePath: the counterpart of set_link in bin/lib/tools.
+#
+# A link already pointing at $SourcePath is left alone, so recipes stay idempotent.
+# Anything else in the way is a conflict and the caller decides, as on macOS; an
+# overwritten real file is kept as <name>.pre-dotfiles, the same convention the
+# openssh-server recipe uses for sshd_config.
+function Set-Link([string]$SourcePath, [string]$TargetPath) {
+  if (-not (Test-Path -LiteralPath $SourcePath)) {
+    throw "Nothing to link: $SourcePath does not exist."
+  }
+  $source = (Resolve-Path -LiteralPath $SourcePath).ProviderPath
+  $existing = Get-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
+
+  if ($existing) {
+    $current = Get-LinkTarget $TargetPath
+    if ($current -and ([IO.Path]::GetFullPath($current) -ieq $source)) {
+      Write-Host "Already linked: $TargetPath -> $source"
+      return
+    }
+    Write-Host "Found conflicting file: $TargetPath"
+    if ($current) { Write-Host "  (a link to $current)" }
+    if (-not (Confirm-Action 'Overwrite it?')) {
+      Write-Host "Skipping $TargetPath"
+      return
+    }
+    # Only a real file is worth keeping; a link holds no content of its own.
+    if (-not $current) {
+      $backup = "$TargetPath.pre-dotfiles"
+      Move-Item -LiteralPath $TargetPath -Destination $backup -Force
+      Write-Host "  kept the original as $backup"
+    } else {
+      Remove-Item -LiteralPath $TargetPath -Force -Recurse
+    }
+  }
+
+  New-Item -ItemType SymbolicLink -Path $TargetPath -Target $source -ErrorAction Stop | Out-Null
+  Write-Host "Linked $TargetPath -> $source"
+}
+
+# Removes $TargetPath only if it is a link pointing inside $Root, so a teardown can
+# never delete a real file someone wrote by hand, or a link to somewhere else.
+function Remove-RepoLink([string]$TargetPath, [string]$Root) {
+  $current = Get-LinkTarget $TargetPath
+  if (-not $current) {
+    if (Test-Path -LiteralPath $TargetPath) { Write-Host "Left alone (not a link): $TargetPath" }
+    return
+  }
+  $full = [IO.Path]::GetFullPath($current)
+  $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\')
+  if (-not ($full -like "$rootFull\*")) {
+    Write-Host "Left alone (links outside this repo): $TargetPath -> $current"
+    return
+  }
+  Remove-Item -LiteralPath $TargetPath -Force -Recurse
+  Write-Host "Removed link: $TargetPath"
+  $backup = "$TargetPath.pre-dotfiles"
+  if (Test-Path -LiteralPath $backup) {
+    Move-Item -LiteralPath $backup -Destination $TargetPath -Force
+    Write-Host "Restored the original from $backup"
+  }
+}
+
 function Assert-Winget {
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw 'winget not found. Install "App Installer" from the Microsoft Store, then re-run.'

@@ -25,11 +25,13 @@ $Root = Split-Path -Parent $PSScriptRoot
 Update-SessionPath
 
 # Recipes run by 'all', in order.
-$All = @('git', 'gh', 'uv', 'hooks', 'claude')
+$All = @('git', 'dotfiles', 'gh', 'uv', 'hooks', 'claude')
 
 # Every Windows recipe, with its help text. Opt-in recipes are listed here but not in $All.
 $Recipes = [ordered]@{
   git   = 'Install Git for Windows via winget (LF-safe, uses Windows OpenSSH)'
+  # Needs to create symlinks: run it over SSH or from an elevated shell.
+  dotfiles = 'Link the dotfiles Windows reads and make the Dev Drive the dev root'
   gh    = 'Install the GitHub CLI via winget and offer to log in'
   uv    = 'Install uv and a uv-managed Python (provides python3 for the hooks)'
   hooks = 'Enable the privacy gate git hooks'

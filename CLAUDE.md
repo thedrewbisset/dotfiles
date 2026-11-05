@@ -50,7 +50,9 @@ Windows recipes are PowerShell files beside the bash ones: `recipes/<name>/insta
 
 - Target **Windows PowerShell 5.1** (ships with Windows) and keep `.ps1` files **ASCII**: 5.1 reads BOM-less files in the ANSI code page.
 - The Windows `all` list is separate and grows only when a recipe is needed there. Parity with macOS is not a goal.
-- Shared helpers are in `bin/lib/tools.ps1` (winget install/upgrade, `Set-UserEnv`, `Assert-Admin`, `Assert-ExitCode`). Native commands do not throw under `$ErrorActionPreference = 'Stop'`, so check `$LASTEXITCODE` with `Assert-ExitCode`.
+- Shared helpers are in `bin/lib/tools.ps1` (winget install/upgrade, `Set-UserEnv`/`Remove-UserEnv`, `Set-Link`/`Remove-RepoLink`/`Get-LinkTarget`/`Test-CanSymlink`, `Assert-Admin`, `Assert-ExitCode`). Native commands do not throw under `$ErrorActionPreference = 'Stop'`, so check `$LASTEXITCODE` with `Assert-ExitCode`.
+- Linking needs `SeCreateSymbolicLinkPrivilege`, which only Administrators hold: an SSH logon keeps it, a local interactive shell does not until elevated. `Set-Link` and `Remove-RepoLink` are the way to link and unlink; a teardown touches a link only when it points inside the repo. Nothing writes *through* a link to a tracked file -- `git config --file` follows one and edits the target, which is why the `gh` recipe checks first.
+- Windows-only files with no `$HOME` dotfile path live in `source/windows/`, and the recipe maps each to its real target (the PowerShell profile comes from `$PROFILE`, since Documents is often redirected into OneDrive).
 - Pin tool state outside `%APPDATA%`/`%LOCALAPPDATA%` with `Set-UserEnv` (prefer the paths the tool uses on macOS). Packaged apps, including the Claude desktop app, redirect AppData writes made by processes they launch into private storage.
 - `.gitattributes` forces LF everywhere; the extensionless bash recipes break with CRLF.
 

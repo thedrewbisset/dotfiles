@@ -19,8 +19,17 @@ Uninstall-WingetPackage -Id 'GitHub.cli'
 # there, and that is the normal state on a machine that never ran the install recipe.
 # --get-all just exits non-zero. ('Stop' would turn a native command's redirected
 # stderr into a terminating error, so neither call merges it into the output stream.)
+#
+# Never through a link: `git config --file` follows one and rewrites the file at the
+# other end, leaving the link in place, so once recipes/dotfiles has linked
+# ~/.gitconfig this would quietly edit the tracked source/.gitconfig instead.
 $gitconfig = Join-Path $Target '.gitconfig'
-if (Test-Path -LiteralPath $gitconfig) {
+$linked = Get-LinkTarget $gitconfig
+if ($linked) {
+  Write-Host "$gitconfig is a link to $linked, so its credential helper was left as it is."
+  Write-Host 'That file is tracked; change it there if you mean to.'
+}
+elseif (Test-Path -LiteralPath $gitconfig) {
   $removed = $false
   foreach ($hostUrl in 'https://github.com', 'https://gist.github.com') {
     git config --file $gitconfig --get-all "credential.$hostUrl.helper" *> $null

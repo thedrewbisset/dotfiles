@@ -93,9 +93,10 @@ git status                       # expect a clean tree, or only your own new fil
 
 The `.oh-my-zsh` submodule is not in the zip and is not needed on Windows.
 
-## 4. GitHub CLI, Python and the privacy gate (recipes + manual)
+## 4. Dotfiles, GitHub CLI, Python and the privacy gate (recipes + manual)
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File bin\install.ps1 dotfiles
 powershell -ExecutionPolicy Bypass -File bin\install.ps1 gh
 powershell -ExecutionPolicy Bypass -File bin\install.ps1 uv
 powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
@@ -103,6 +104,16 @@ powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
 
 (`bin\install.ps1 all` runs these and `claude` in order.)
 
+- **Symlink privilege.** The `dotfiles` recipe creates symlinks, which needs
+  `SeCreateSymbolicLinkPrivilege`: only Administrators hold it, and UAC strips it from
+  a local interactive shell. An SSH logon keeps it, so over SSH this just works; at the
+  machine itself, use "Run as administrator". The recipe tests it by making one
+  throwaway link and stops before writing anything if it cannot. Because `dotfiles` is
+  in `all`, the same applies to a full `all` run.
+- **What it links.** `.gitconfig`, `.git-excludes-file`, `.ssh/config`, and
+  `source/windows/profile.ps1` to the PowerShell profile. An existing *real*
+  `~/.ssh/config` is left alone, as on macOS. It also sets `DEV_ROOT`, which is what
+  makes an SSH login land in `D:\src` (see [Where things live](#where-things-live)).
 - **gh login (manual).** The `gh` recipe offers it; answer the browser or device-code
   prompt yourself. Shells opened before the recipe ran do not have `GH_CONFIG_DIR`
   yet and report "not logged in" -- open a new one.
@@ -114,19 +125,28 @@ powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
   `hooks` recipe warns if it is missing. Copy `scripts\denylist.local.txt.example` to
   `~\.config\exponential\denylist.txt` and list the names this public repo must never
   contain.
-- **Commit identity (manual, per clone).** The `dotfiles` recipe that links
-  `.gitconfig` and the identity files has no Windows version yet, so set it on the clone:
+- **Commit identity (manual).** `.gitconfig` routes identities through
+  `~\.gitconfig-identities`, which is gitignored and so never arrives with the repo.
+  The `dotfiles` recipe warns when an include is missing, because git ignores one
+  silently and the first symptom is a commit under the wrong name. Copy
+  `source\.gitconfig-identities.example` and `source\.gitconfig-identity.example`,
+  fill them in, and remember that `includeIf "gitdir:..."` patterns need *this*
+  machine's paths with forward slashes -- `gitdir:D:/src/work/`, not the macOS
+  home-relative ones. Or skip all that and set it on the clone:
 
   ```powershell
   git config user.name <name>
   git config user.email <email>
   ```
 
-- **Pushing over HTTPS** needs no flags: the `gh` recipe points git's credential
-  helper for `github.com` and `gist.github.com` at gh, so gh's own login answers
-  instead of the Git Credential Manager. Every other host keeps GCM. The recipe skips
-  this and says so if `~/.gitconfig` is a link, since on macOS that is the repo's
-  tracked `source/.gitconfig` and this is machine-local configuration.
+- **Pushing over HTTPS** needs no flags: git's credential helper for `github.com` and
+  `gist.github.com` points at gh, so gh's own login answers instead of the Git
+  Credential Manager, which an SSH logon session cannot reach. Every other host keeps
+  GCM. With `dotfiles` run, the helper comes from the tracked `source/.gitconfig`
+  through the `~/.gitconfig` link, and the `gh` recipe says so rather than writing it:
+  it never writes through a link, since that file is public and this is machine-local
+  configuration. On a machine without `dotfiles`, the `gh` recipe writes it into a real
+  `~/.gitconfig` instead. Either way `bin\teardown.ps1 gh` leaves a linked file alone.
 
 ## 5. Claude Code (recipe)
 
@@ -219,6 +239,9 @@ Get-MpComputerStatus | Select AMRunningMode, RealTimeProtectionEnabled       # N
 Get-Volume D | Select FileSystem, FileSystemLabel                            # ReFS, Dev
 git config --system core.autocrlf                                            # false
 git config core.hooksPath                                                    # hooks
+(Get-Item ~\.gitconfig -Force).Target                                        # ...\source\.gitconfig
+$env:DEV_ROOT                                                                # D:\src
+ssh -G github.com | Select-String identityfile                               # the config parses
 python3 -c "import sys; print(sys.executable)"                               # under ~\.local\share\uv
 gh auth status
 Get-Service sshd | Select Status, StartType                                  # Running, Automatic
@@ -231,7 +254,10 @@ Get-NetConnectionProfile | Select Name, NetworkCategory                      # P
 | What | Where | Set by |
 |---|---|---|
 | Dev Drive | `D:` from `C:\DevDrives\dev.vhdx`, task `\dotfiles\Mount Dev Drive` | `devdrive` |
-| Repos | `D:\src\` | you |
+| Repos | `D:\src\`, and `DEV_ROOT` points at it | `devdrive`, `dotfiles` |
+| Linked dotfiles | `~\.gitconfig`, `~\.git-excludes-file`, `~\.ssh\config` -> `source\` | `dotfiles` |
+| PowerShell profile | `$PROFILE.CurrentUserAllHosts` -> `source\windows\profile.ps1` | `dotfiles` |
+| Git identities | `~\.gitconfig-identities` and the files it includes | you (gitignored) |
 | Git for Windows, GitHub CLI | Program Files | `git`, `gh` (winget) |
 | uv, Python 3.14 | winget's folder; `~\.local\share\uv\python`, launchers in `~\.local\bin` | `uv` |
 | uv cache, tools | `~\.cache\uv`, `~\.local\share\uv\tools` | `uv` (`UV_*` user variables) |
@@ -250,6 +276,7 @@ bin\teardown.ps1 claude           # from a plain shell, not from inside Claude C
 bin\teardown.ps1 hooks            # un-gates commits in this clone
 bin\teardown.ps1 uv               # removes the python3 the hooks need
 bin\teardown.ps1 gh
+bin\teardown.ps1 dotfiles         # unlinks; new shells start at ~ again
 bin\teardown.ps1 git              # last thing needing git
 bin\teardown.ps1 devdrive         # elevated, from a copy of the repo NOT on D:
 ```
@@ -258,8 +285,10 @@ Each asks before it does anything. What they keep: `claude` keeps `~\.claude` an
 `~\.claude.json` (sessions, settings, project history) and refuses to run while a
 `claude.exe` is running, because Windows locks a running binary; `hooks` keeps the
 deny-list, which is shared with every other clone and worktree; `uv` keeps project
-`.venv` directories; `devdrive` detaches the drive and deletes the backing file only
-if you type `DELETE`. Tearing down `uv` or `hooks` means commits here stop being
+`.venv` directories; `dotfiles` removes only links pointing inside this repo, so a
+hand-written file or a link elsewhere is reported and kept, and it restores any
+`.pre-dotfiles` copy it made; `devdrive` detaches the drive and deletes the backing
+file only if you type `DELETE`. Tearing down `uv` or `hooks` means commits here stop being
 checked against the deny-list -- `uv` takes `python3` away, so the gate refuses every
 commit until the recipe runs again. The manual steps (Defender, network type, router)
 are left as they are.

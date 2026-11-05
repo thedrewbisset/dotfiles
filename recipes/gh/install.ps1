@@ -55,12 +55,32 @@ if ($LASTEXITCODE -eq 0) {
 $gitconfig = Join-Path $Target '.gitconfig'
 $existing = Get-Item -LiteralPath $gitconfig -Force -ErrorAction SilentlyContinue
 if ($existing -and $existing.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint)) {
-  # A Windows `dotfiles` recipe would link this to source/.gitconfig, as on macOS.
-  # That file is tracked in a public repo, and this is machine-local configuration.
-  Write-Warning ("$gitconfig is a link, so the gh credential helper was not written. " +
-    'It points at a tracked file (source/.gitconfig on macOS) and this is ' +
-    "machine-local configuration, so set it per clone instead: git config " +
-    "credential.https://github.com.helper '!gh auth git-credential'")
+  # recipes/dotfiles links this to source/.gitconfig, as on macOS. Nothing is written
+  # through a link: that file is tracked in a public repo. It does carry the same bare
+  # `gh` helper, though, so the normal case is that there is nothing to do -- reading
+  # through the link is what says whether that is true here.
+  # ('Stop' would turn git's redirected stderr into a terminating error.)
+  $unrouted = @()
+  foreach ($hostUrl in 'https://github.com', 'https://gist.github.com') {
+    $helpers = & {
+      $ErrorActionPreference = 'Continue'
+      git config --file $gitconfig --get-all "credential.$hostUrl.helper" 2>$null
+    }
+    if (-not ($helpers | Where-Object { $_ -like '*gh auth git-credential*' })) {
+      $unrouted += $hostUrl
+    }
+  }
+  # A key with no value is the normal case, so the probe's exit code is not a failure.
+  $global:LASTEXITCODE = 0
+  if ($unrouted.Count -eq 0) {
+    Write-Host "$gitconfig is a link, and its target already routes HTTPS credentials through gh."
+  } else {
+    Write-Warning ("$gitconfig is a link, so the gh credential helper was not written, " +
+      "and its target does not supply one for: $($unrouted -join ', '). It points at a " +
+      'tracked file (source/.gitconfig) and this is machine-local configuration, so ' +
+      'either add the helper there or set it per clone: git config ' +
+      "credential.https://github.com.helper '!gh auth git-credential'")
+  }
 }
 else {
   foreach ($hostUrl in 'https://github.com', 'https://gist.github.com') {
