@@ -53,6 +53,16 @@ source/.gitconfig-*
 # publish the names it exists to withhold.
 scripts/denylist.local.txt
 
+# --- Fleet inventory (scripts/fleet-inventory.sh, docs/llm-cluster.md) ---
+# A collected inventory names every machine on the LAN along with its host name
+# and address, and the host list names the fleet itself: the same correlation the
+# layouts and git identities above withhold, and exactly the inventory a public
+# dotfiles repo should not publish. Both are written outside the repo by default,
+# under $XDG_DATA_HOME and $XDG_CONFIG_HOME, so these lines only catch a copy
+# deliberately brought in-tree.
+inventory/
+fleet.hosts
+
 # Python bytecode
 __pycache__/
 *.pyc
