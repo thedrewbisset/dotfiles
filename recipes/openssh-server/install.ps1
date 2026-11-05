@@ -94,7 +94,12 @@ Write-Host 'Firewall: TCP 22 allowed from the local subnet on Private networks o
 
 # 5. Shell and service
 $shell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-New-Item -Path 'HKLM:\SOFTWARE\OpenSSH' -Force | Out-Null
+# The OpenSSH capability already creates this key (owner SYSTEM, Administrators
+# FullControl). -Force on an existing key makes the provider delete and recreate it,
+# which needs rights on the parent HKLM\SOFTWARE and is denied even when elevated.
+if (-not (Test-Path 'HKLM:\SOFTWARE\OpenSSH')) {
+  New-Item -Path 'HKLM:\SOFTWARE\OpenSSH' | Out-Null
+}
 New-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell -Value $shell -PropertyType String -Force | Out-Null
 Set-Service sshd -StartupType Automatic
 Restart-Service sshd
