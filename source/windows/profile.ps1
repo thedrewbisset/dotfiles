@@ -18,9 +18,15 @@
 #   Only when the drive is attached. The devdrive recipe mounts it from a boot task
 #   that can be slower than the first login, and a Set-Location into a drive that is
 #   not there yet would fail the whole profile.
-if ($env:DEV_ROOT -and (Test-Path -LiteralPath $env:DEV_ROOT)) {
+# Trimmed, and the move itself is guarded: Test-Path accepts a path with a trailing
+# space (Windows trims it) where Set-Location -LiteralPath does not, so a stray space
+# in the variable would otherwise put a Set-Location error in front of every login --
+# including the one-shot SSH commands this file is supposed to stay out of the way of.
+$devRoot = if ($env:DEV_ROOT) { $env:DEV_ROOT.Trim() } else { $null }
+if ($devRoot -and (Test-Path -LiteralPath $devRoot)) {
   $here = (Get-Location).ProviderPath
   if ($here -and $home -and $here.TrimEnd('\') -ieq $home.TrimEnd('\')) {
-    Set-Location -LiteralPath $env:DEV_ROOT
+    # A convenience, never a reason for a shell to fail or print anything.
+    try { Set-Location -LiteralPath $devRoot -ErrorAction Stop } catch { }
   }
 }
