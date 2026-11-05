@@ -265,6 +265,14 @@ bin\teardown.ps1 devdrive         # elevated, from a copy of the repo NOT on D:
 - **`python3` opens the Store, or "uv trampoline failed to spawn Python"**: the
   `WindowsApps` stub is first on PATH, or a launcher points at a deleted install.
   Delete `~\.local\bin\python*.exe` and re-run the `uv` recipe.
+- **`python3` fails only in elevated shells or over SSH with "The path cannot be
+  traversed because it contains an untrusted mount point. (os error 448)"**: uv
+  reaches Python through a junction (`cpython-3.14-...` -> `cpython-3.14.N-...`), and
+  Windows will not let an elevated process follow a junction created by a non-elevated
+  one. An administrator's SSH session is always elevated, so the privacy gate hooks
+  stop working there. Re-run the `uv` recipe elevated or over SSH; a junction created
+  that way works for both. It comes back when uv upgrades the patch release from a
+  non-elevated shell, and the recipe warns when run non-elevated.
 - **"Permission denied (publickey)"**: the key is not in
   `administrators_authorized_keys` yet; re-run the `openssh-server` recipe elevated
   (6d). **"Too many authentication failures"**: add `IdentitiesOnly yes` (6c).
