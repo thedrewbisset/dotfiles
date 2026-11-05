@@ -53,6 +53,16 @@ source/.gitconfig-*
 # publish the names it exists to withhold.
 scripts/denylist.local.txt
 
+# --- Fleet inventory (scripts/fleet-inventory.sh, docs/llm-cluster.md) ---
+# A collected inventory names every machine on the LAN along with its host name
+# and address, and the host list names the fleet itself: the same correlation the
+# layouts and git identities above withhold, and exactly the inventory a public
+# dotfiles repo should not publish. Both are written outside the repo by default,
+# under $XDG_DATA_HOME and $XDG_CONFIG_HOME, so these lines only catch a copy
+# deliberately brought in-tree.
+inventory/
+fleet.hosts
+
 # Python bytecode
 __pycache__/
 *.pyc
@@ -62,3 +72,12 @@ __pycache__/
 
 # The ML environment floats by design; see recipes/ml/pyproject.toml
 recipes/ml/uv.lock
+
+# --- Disk encryption working notes (see ROADMAP.md, docs/windows-disk-encryption.md) ---
+# A per-machine plan records what is NOT yet protected on a named machine -- Secure
+# Boot state, which volumes are still unencrypted, where a plaintext token sits -- and
+# the remediation is blocked on physical console access, so the gap stays open while
+# the notes exist. That is a current-weakness inventory plus the path to the
+# credential, which is the correlation this public repo withholds everywhere above.
+# The generic sequence is committed in docs/; the machine-specific state is not.
+DISK_ENCRYPTION_PLAN.md

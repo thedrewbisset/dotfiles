@@ -26,3 +26,29 @@ AWS_BEARER_TOKEN_BEDROCK="$(security find-generic-password -s claude-bedrock-tok
 
 - Per-project `.env` files vs. a single global manifest.
 - Naming convention for Keychain service names (e.g. `claude-bedrock-token`).
+
+## Encrypt the Windows machine's drives
+
+**Goal:** Full-disk encryption on the Windows box, so a credential on disk is
+protected by more than file permissions.
+
+**Why:** A key-based SSH logon session cannot reach Windows Credential Manager, so
+`gh` falls back to a plaintext token file. Permissions are enforced by the running
+OS; an unencrypted drive does not need the OS to be read. Encryption is what makes
+those permissions mean anything once the disk leaves the machine. Same shape as the
+`dotenvx` goal above: at-rest protection for a secret that has to exist somewhere.
+
+**Blocked on physical access.** Secure Boot is a firmware setting, and a TPM that
+fails to release the key stops the machine at a recovery prompt before the network
+comes up. Both steps need the console, so this cannot be driven over SSH.
+
+### Steps
+
+The sequence, requirements and verification are written up in
+[docs/windows-disk-encryption.md](docs/windows-disk-encryption.md). Per-machine state
+and recovery-key IDs stay out of this repo deliberately -- see `.gitignore`.
+
+1. Turn on Secure Boot at the console (UEFI boot mode, not legacy/CSM).
+2. Turn on Device encryption and confirm the recovery key is backed up elsewhere.
+3. Check each fixed drive, including the Dev Drive, which may need enabling on its own.
+4. Narrow the `gh` credential to a fine-grained PAT, which is worth doing either way.

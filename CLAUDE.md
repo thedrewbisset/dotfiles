@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a dotfiles repository designed to bootstrap a macOS development environment. It uses a recipe-based system to install and configure various tools including dotfiles, vim plugins, homebrew packages, and language runtime managers.
+This is a dotfiles repository designed to bootstrap a macOS development environment, plus a deliberately smaller Windows one. It uses a recipe-based system to install and configure various tools including dotfiles, vim plugins, homebrew packages, and language runtime managers.
 
 ## Architecture
 
@@ -42,7 +42,19 @@ bin/install.sh zsh
 - The installer uses interactive prompts for conflicting files (overwrite/skip)
 - Vim plugins are cloned/updated from GitHub using SSH URLs
 - All recipes are designed to be idempotent (safe to run multiple times)
-- The project targets macOS and assumes bash shell environment
+- The project targets macOS and assumes bash shell environment, with a growing Windows side (below)
+
+## Windows
+
+Windows recipes are PowerShell files beside the bash ones: `recipes/<name>/install.ps1` and `teardown.ps1`, run by `bin/install.ps1` / `bin/teardown.ps1` with the same `<recipe|all>` interface. Neither platform's installer reads the other's files, so a change on one side cannot break the other. See README's Windows section.
+
+- Target **Windows PowerShell 5.1** (ships with Windows) and keep `.ps1` files **ASCII**: 5.1 reads BOM-less files in the ANSI code page.
+- The Windows `all` list is separate and grows only when a recipe is needed there. Parity with macOS is not a goal.
+- Shared helpers are in `bin/lib/tools.ps1` (winget install/upgrade, `Set-UserEnv`/`Remove-UserEnv`, `Set-Link`/`Remove-RepoLink`/`Get-LinkTarget`/`Test-CanSymlink`, `Assert-Admin`, `Assert-ExitCode`). Native commands do not throw under `$ErrorActionPreference = 'Stop'`, so check `$LASTEXITCODE` with `Assert-ExitCode`.
+- Linking needs `SeCreateSymbolicLinkPrivilege`, which only Administrators hold: an SSH logon keeps it, a local interactive shell does not until elevated. `Set-Link` and `Remove-RepoLink` are the way to link and unlink; a teardown touches a link only when it points inside the repo. Nothing writes *through* a link to a tracked file -- `git config --file` follows one and edits the target, which is why the `gh` recipe checks first.
+- Windows-only files with no `$HOME` dotfile path live in `source/windows/`, and the recipe maps each to its real target (the PowerShell profile comes from `$PROFILE`, since Documents is often redirected into OneDrive).
+- Pin tool state outside `%APPDATA%`/`%LOCALAPPDATA%` with `Set-UserEnv` (prefer the paths the tool uses on macOS). Packaged apps, including the Claude desktop app, redirect AppData writes made by processes they launch into private storage.
+- `.gitattributes` forces LF everywhere; the extensionless bash recipes break with CRLF.
 
 ## Privacy Gate
 
