@@ -41,10 +41,11 @@ if ($LASTEXITCODE -eq 0) {
 # Username". gh holds its own token, so it can answer where GCM cannot.
 #
 # The empty helper first resets the list, which drops the system gitconfig's `manager`
-# for these hosts only -- every other host keeps GCM. That mirrors the block
-# `gh auth setup-git` leaves at the end of source/.gitconfig on macOS, except the
-# helper is a bare `gh`: setup-git hardcodes an absolute path (the macOS copy still
-# names Homebrew's), and a winget install path moves on upgrade.
+# for these hosts only -- every other host keeps GCM. It matches the block at the end
+# of source/.gitconfig, which both platforms now link: a bare `gh`, resolved from PATH.
+# `gh auth setup-git` writes an absolute path instead, which is wrong on the other
+# platform and moves on a winget upgrade, so if it ever runs again the bare form has
+# to go back.
 #
 # --file rather than --global so -Target stays honoured; `git config --global` would
 # write the real home directory during a test run.
