@@ -106,6 +106,10 @@ powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
 - **gh login (manual).** The `gh` recipe offers it; answer the browser or device-code
   prompt yourself. Shells opened before the recipe ran do not have `GH_CONFIG_DIR`
   yet and report "not logged in" -- open a new one.
+  Note that an SSH logon session cannot use Credential Manager, so `gh` keeps its
+  token in plaintext under `GH_CONFIG_DIR`; see
+  [disk encryption](windows-disk-encryption.md) for why that wants an encrypted
+  drive and how to turn one on.
 - **Deny-list (manual).** The gate blocks every commit until it exists, and the
   `hooks` recipe warns if it is missing. Copy `scripts\denylist.local.txt.example` to
   `~\.config\exponential\denylist.txt` and list the names this public repo must never
