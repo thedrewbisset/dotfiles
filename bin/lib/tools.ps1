@@ -163,7 +163,11 @@ $script:WingetCommon = @('--exact', '--source', 'winget', '--disable-interactivi
 
 function Test-WingetPackage([string]$Id) {
   winget list --id $Id @script:WingetCommon | Out-Null
-  return ($LASTEXITCODE -eq 0)
+  $found = ($LASTEXITCODE -eq 0)
+  # "No installed package found" (exit 20) is an answer, not a failure. Left alone it
+  # becomes the exit code of a teardown that correctly found nothing to remove.
+  $global:LASTEXITCODE = 0
+  return $found
 }
 
 # Installs a package, or upgrades it if already present. $Custom is appended to the

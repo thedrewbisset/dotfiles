@@ -77,12 +77,29 @@ foreach ($dir in $Layout) { New-Item -ItemType Directory -Force "${Letter}:\$dir
 # 4. Mount at boot. A virtual disk attached by diskpart or Mount-DiskImage does not
 # come back after a restart on its own.
 $mount = "if (-not (Get-DiskImage -ImagePath '$Vhdx').Attached) { Mount-DiskImage -ImagePath '$Vhdx' }"
-Register-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Mount Dev Drive' -Force `
+# The name carries the drive letter. It used to be a single 'Mount Dev Drive', so a
+# second drive at another letter silently took over the first one's boot mount -- and
+# tearing that second drive down then deleted it, leaving the first unmounted after a
+# restart. Migrate the old task away, but only when it is this drive's.
+$legacy = Get-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Mount Dev Drive' -ErrorAction SilentlyContinue
+if ($legacy -and $legacy.Actions[0].Arguments -like "*$Vhdx*") {
+  Unregister-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Mount Dev Drive' -Confirm:$false
+  Write-Host 'Replaced the old, letter-less boot task'
+}
+# No colon in the name: Task Scheduler rejects one with "The parameter is incorrect".
+$taskName = "Mount Dev Drive ($Letter)"
+Register-ScheduledTask -TaskPath '\dotfiles\' -TaskName $taskName -Force -ErrorAction Stop `
   -Description "Attach $Vhdx as ${Letter}: at boot. Managed by the dotfiles devdrive recipe." `
   -Action (New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -NonInteractive -Command `"$mount`"") `
   -Trigger (New-ScheduledTaskTrigger -AtStartup) `
   -Principal (New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest) | Out-Null
-Write-Host 'Boot-time mount task registered (\dotfiles\Mount Dev Drive)'
+# Confirmed, not assumed: Register-ScheduledTask reports some failures without
+# stopping the script, so an unregistered task would otherwise be announced as done
+# and the drive would simply not come back after a restart.
+if (-not (Get-ScheduledTask -TaskPath '\dotfiles\' -TaskName $taskName -ErrorAction SilentlyContinue)) {
+  throw "The boot-time mount task '$taskName' was not registered, so ${Letter}: would not come back after a restart."
+}
+Write-Host "Boot-time mount task registered (\dotfiles\$taskName)"
 
 # 5. Report
 $vol = Get-Volume -DriveLetter $Letter

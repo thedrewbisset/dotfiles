@@ -16,8 +16,15 @@ if ($Root -like "${Letter}:\*") {
   throw "This repo is on ${Letter}:, the drive being removed. Copy the repo elsewhere (e.g. to Downloads) and run the teardown from there."
 }
 
-Unregister-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Mount Dev Drive' -Confirm:$false -ErrorAction SilentlyContinue
-Write-Host 'Removed the boot-time mount task'
+# This drive's task, plus the old letter-less one when it belonged to this drive.
+# Another drive's task is left alone: before the name carried the letter, tearing one
+# drive down removed the other drive's boot mount along with it.
+Unregister-ScheduledTask -TaskPath '\dotfiles\' -TaskName "Mount Dev Drive ($Letter)" -Confirm:$false -ErrorAction SilentlyContinue
+$legacy = Get-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Mount Dev Drive' -ErrorAction SilentlyContinue
+if ($legacy -and $legacy.Actions[0].Arguments -like "*$Vhdx*") {
+  Unregister-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Mount Dev Drive' -Confirm:$false
+}
+Write-Host "Removed the boot-time mount task for ${Letter}:"
 
 if (-not (Test-Path $Vhdx)) {
   Write-Host "$Vhdx does not exist; nothing else to do."
