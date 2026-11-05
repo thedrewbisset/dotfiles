@@ -37,6 +37,16 @@ function Set-UserEnv([string]$Name, [string]$Value) {
   Set-Item -Path "env:$Name" -Value $Value
 }
 
+# Removes a user environment variable, in the registry and in this session. The
+# teardown counterpart of Set-UserEnv; a variable it never set is left alone.
+function Remove-UserEnv([string]$Name) {
+  if ($null -ne [Environment]::GetEnvironmentVariable($Name, 'User')) {
+    [Environment]::SetEnvironmentVariable($Name, $null, 'User')
+    Write-Host "Removed user env $Name"
+  }
+  Remove-Item -Path "env:$Name" -ErrorAction SilentlyContinue
+}
+
 # Puts $Dir at the front of the *user* PATH (persisted), ahead of WindowsApps, whose
 # python/python3 "App execution alias" stubs would otherwise shadow real installs.
 function Add-UserPathEntry([string]$Dir) {

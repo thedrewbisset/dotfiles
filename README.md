@@ -223,7 +223,7 @@ They target Windows PowerShell 5.1, which ships with Windows, and install throug
 | `devdrive` | no | A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) at `D:` (expandable virtual disk, 64 GB cap) with `src`, `caches`, `models`, re-attached at boot. Run elevated, normally first |
 | `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
 
-`git` and `gh` have teardowns that uninstall the package; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose.
+Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
 
 ### First run
 

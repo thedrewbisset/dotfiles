@@ -246,14 +246,23 @@ Reverse order. Each one stands alone:
 
 ```powershell
 bin\teardown.ps1 openssh-server   # elevated; restores the original sshd_config
+bin\teardown.ps1 claude           # from a plain shell, not from inside Claude Code
+bin\teardown.ps1 hooks            # un-gates commits in this clone
+bin\teardown.ps1 uv               # removes the python3 the hooks need
 bin\teardown.ps1 gh
 bin\teardown.ps1 git              # last thing needing git
 bin\teardown.ps1 devdrive         # elevated, from a copy of the repo NOT on D:
 ```
 
-`devdrive`'s teardown detaches the drive and deletes the backing file only if you type
-`DELETE`. `uv`, `hooks` and `claude` have no teardown, as on macOS. The manual steps
-(Defender, network type, router) are left as they are.
+Each asks before it does anything. What they keep: `claude` keeps `~\.claude` and
+`~\.claude.json` (sessions, settings, project history) and refuses to run while a
+`claude.exe` is running, because Windows locks a running binary; `hooks` keeps the
+deny-list, which is shared with every other clone and worktree; `uv` keeps project
+`.venv` directories; `devdrive` detaches the drive and deletes the backing file only
+if you type `DELETE`. Tearing down `uv` or `hooks` means commits here stop being
+checked against the deny-list -- `uv` takes `python3` away, so the gate refuses every
+commit until the recipe runs again. The manual steps (Defender, network type, router)
+are left as they are.
 
 ## Troubleshooting
 
