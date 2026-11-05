@@ -24,6 +24,11 @@ github.com/tmux-plugins/tmux-resurrect
 github.com/tmux-plugins/tmux-continuum
 github.com/paperclipai/paperclip
 
+# Sources cited by docs/llm-cluster.md: a distributed llama.cpp benchmark write-up
+# and exo's archived repository. Referenced, not installed.
+github.com/kjaiswal/llama-cpp-distributed-benchmarks
+github.com/exo-explore/ex-exo
+
 # An SSH URL, not an address.
 git@github.com
 

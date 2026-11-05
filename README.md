@@ -262,6 +262,30 @@ Host <alias>
 
 ---
 
+## LLM cluster
+
+**[`docs/llm-cluster.md`](docs/llm-cluster.md)** is the planning document for running local models across the machines on a private LAN: why pooling VRAM over Ethernet buys capacity rather than speed, which of the available tools is worth the effort, and what the hardware on hand actually supports. In short: wire the nodes up before installing anything, and prefer one runtime per machine behind a single endpoint over splitting one model across six.
+
+Three read-only scripts collect the numbers that planning needs. None of them install or change anything.
+
+| Script | Runs on | What it does |
+|---|---|---|
+| `scripts/inventory.ps1` | Windows | Prints this machine's inventory as JSON |
+| `scripts/inventory.sh` | macOS, Linux | The same, in the same schema |
+| `scripts/fleet-inventory.sh` | the machine you drive from | Collects from every node over SSH and prints a comparison |
+
+```bash
+# Hosts from the config file
+scripts/fleet-inventory.sh
+
+# Or named as arguments, with a platform where it is not unix
+scripts/fleet-inventory.sh studio box:windows
+```
+
+Hosts are ssh aliases rather than addresses, and both the host list and the collected results live outside the repo: a collected set names every machine on the LAN and its address, which is the kind of inventory this repo deliberately withholds (see [Privacy gate](#privacy-gate)). The collector is piped to each node over SSH on stdin, so nothing is copied and no node can run a stale version.
+
+---
+
 ## PostgreSQL Setup
 
 The `postgresql` recipe bootstraps a local PostgreSQL 16 instance for development:
