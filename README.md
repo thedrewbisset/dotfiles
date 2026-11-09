@@ -1,6 +1,6 @@
 # Dotfiles
 
-Bootstrap and maintain a macOS development environment. Recipes handle installation of dotfiles, tools, and configuration. All recipes are idempotent — safe to run multiple times.
+Bootstrap and maintain a macOS development environment, with a smaller [Windows](#windows) counterpart. Recipes handle installation of dotfiles, tools, and configuration. All recipes are idempotent — safe to run multiple times.
 
 ---
 
@@ -204,6 +204,90 @@ bin/teardown.sh --target /tmp/test-home dotfiles
 ```
 
 Recipes that install global packages (homebrews, rubies, postgresql, etc.) print a message instead of attempting teardown.
+
+---
+
+## Windows
+
+Windows recipes are PowerShell files beside the bash ones — `recipes/<name>/install.ps1` and `teardown.ps1` — run by `bin/install.ps1` and `bin/teardown.ps1` with the same `<recipe|all>` interface. Neither installer reads the other platform's files. The Windows side is deliberately small: a recipe is added when it is needed there, not for parity.
+
+They target Windows PowerShell 5.1, which ships with Windows, and install through `winget`, so a fresh machine needs nothing first. Re-running a winget recipe upgrades the package.
+
+| Recipe | In `all` | What it does |
+|---|---|---|
+| `git` | yes | Git for Windows. Installed with `core.autocrlf=false` and Windows' own OpenSSH, both in Git's system config so `~/.gitconfig` stays shared with macOS |
+| `dotfiles` | yes | Links the three files Windows reads (`.gitconfig`, `.git-excludes-file`, `.ssh/config`) plus `source/windows/profile.ps1`, and sets `DEV_ROOT`. Needs symlink privilege: run it over SSH or elevated |
+| `gh` | yes | GitHub CLI, config pinned to `~\.config\gh`; offers to log in |
+| `uv` | yes | uv and a uv-managed Python 3.14, which provides the `python3` the git hooks call |
+| `hooks` | yes | The privacy gate hooks. Fails if `python3` does not actually run |
+| `claude` | yes | Claude Code CLI via Anthropic's native installer |
+| `devdrive` | no | A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) at `D:` (expandable virtual disk, 64 GB cap) with `src`, `caches`, `models`, re-attached at boot. Run elevated, normally first |
+| `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
+
+Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `dotfiles` removes only links that point inside this repo, restoring any `.pre-dotfiles` copy it made; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
+
+Three files in `source/` are linked here, because they are the ones Windows tools read. The rest belong to tools this side does not have — zsh, oh-my-zsh, tmux, ruby, psql, bats, paperclip, vim — and `.claude` is skipped for the same reason as on macOS: it is Claude Code's live home, not config. `source/windows/` holds the Windows-only files that have no `$HOME` dotfile path of their own; `profile.ps1` is linked to `$PROFILE.CurrentUserAllHosts`, read from `$PROFILE` rather than built by hand because Documents is often redirected into OneDrive.
+
+The dev root is `DEV_ROOT` (`D:\src`, following `DEVDRIVE_LETTER`). `sshd` has no working-directory option and drops a login in `%USERPROFILE%`, so the linked profile moves there — but only when the shell starts in the home directory, so a terminal opened inside a project stays put and an explicit `cd` in an SSH command still wins, and only when the drive is attached, since the boot-time mount task can be slower than the first login.
+
+### First run
+
+**[`docs/windows.md`](docs/windows.md)** is the runbook: the order that works, from a zip of this repo on a fresh machine to an SSH login from another computer, including the manual steps (antivirus, network trust, router, keys, deny-list) and why each is manual. In short: Defender only, `devdrive` from the unpacked zip, move the repo to `D:\src`, `git`, turn the folder into a clone, then `all`.
+
+A Dev Drive's lighter scanning comes from Microsoft Defender's performance mode. A third-party antivirus does not provide it, and heuristic engines tend to quarantine installer scripts like these.
+
+### Gotchas
+
+- **AppData redirection.** Packaged (MSIX) apps — the Claude desktop app among them — silently redirect `%APPDATA%` and `%LOCALAPPDATA%` writes made by any process they launch into the app's private storage. A tool installed from such a terminal ends up somewhere your own shells cannot see. Recipes pin tool state elsewhere with `Set-UserEnv` (`bin/lib/tools.ps1`), preferring the paths the tool uses on macOS; registry writes are not redirected, which is why that works. When in doubt, run recipes from a plain terminal or an SSH session.
+- **The python stubs.** `WindowsApps` holds `python.exe` / `python3.exe` stubs that only open the Microsoft Store. The `uv` recipe puts `~\.local\bin` first on the user `PATH` so uv's Python wins.
+- **Line endings.** `.gitattributes` forces LF everywhere. Most bash recipes have no extension, so without it a CRLF checkout breaks them on the next commit to macOS.
+
+### SSH server
+
+`bin\install.ps1 openssh-server`, from an elevated PowerShell:
+
+- Installs Windows' built-in OpenSSH Server and writes `sshd_config` from [`recipes/openssh-server/sshd_config`](recipes/openssh-server/sshd_config): keys only, the current user only, local port forwarding only (enough for VS Code Remote-SSH). The new config is checked with `sshd -t` before it replaces the live one; the original is kept as `sshd_config.pre-dotfiles`.
+- Replaces the feature's own firewall rule, which allows every network and address, with TCP 22 from the **local subnet on Private networks only**. It never changes a network's Public/Private type — trusting a network is your decision — and warns if the active one is Public.
+- Copies `~\.ssh\authorized_keys` into `C:\ProgramData\ssh\administrators_authorized_keys`, with an Administrators/SYSTEM-only ACL. Windows sshd ignores the per-user file for administrators. Re-run the recipe after adding a key.
+- Makes PowerShell the login shell and prints the host key fingerprint to check on first connect.
+
+To keep traffic off the WAN, also make sure the router forwards no port to the machine and has UPnP off. On the client, give the machine its own key and put the host entry in `~/.ssh/config.local`, which `source/.ssh/config` includes but this repo never tracks, since it holds an IP and username:
+
+```
+Host <alias>
+  HostName <lan-ip>
+  User <windows-user>
+  IdentityFile ~/.ssh/<alias>
+  IdentitiesOnly yes
+```
+
+`IdentitiesOnly yes` matters: the server allows three attempts, and an agent holding several GitHub keys uses them all up first.
+
+`bin\teardown.ps1 openssh-server` stops and disables sshd, removes the firewall rule, restores the original config, and offers to remove the Windows feature. Host keys are kept, so a reinstall keeps the same fingerprint.
+
+---
+
+## LLM cluster
+
+**[`docs/llm-cluster.md`](docs/llm-cluster.md)** is the planning document for running local models across the machines on a private LAN: why pooling VRAM over Ethernet buys capacity rather than speed, which of the available tools is worth the effort, and what the hardware on hand actually supports. In short: wire the nodes up before installing anything, and prefer one runtime per machine behind a single endpoint over splitting one model across six.
+
+Three read-only scripts collect the numbers that planning needs. None of them install or change anything.
+
+| Script | Runs on | What it does |
+|---|---|---|
+| `scripts/inventory.ps1` | Windows | Prints this machine's inventory as JSON |
+| `scripts/inventory.sh` | macOS, Linux | The same, in the same schema |
+| `scripts/fleet-inventory.sh` | the machine you drive from | Collects from every node over SSH and prints a comparison |
+
+```bash
+# Hosts from the config file
+scripts/fleet-inventory.sh
+
+# Or named as arguments, with a platform where it is not unix
+scripts/fleet-inventory.sh studio box:windows
+```
+
+Hosts are ssh aliases rather than addresses, and both the host list and the collected results live outside the repo: a collected set names every machine on the LAN and its address, which is the kind of inventory this repo deliberately withholds (see [Privacy gate](#privacy-gate)). The collector is piped to each node over SSH on stdin, so nothing is copied and no node can run a stale version.
 
 ---
 

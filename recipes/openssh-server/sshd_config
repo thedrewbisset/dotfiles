@@ -1,0 +1,39 @@
+# Managed by the dotfiles openssh-server recipe (recipes/openssh-server/sshd_config).
+# Re-running the recipe overwrites edits made here; change the template instead.
+# The recipe replaces __ALLOW_USER__; sshd itself expands __PROGRAMDATA__.
+# sshd_config does not allow trailing comments, so every comment has its own line.
+
+Port 22
+
+# Keys only. With no key installed nobody can log in, which is the safe failure.
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+AllowUsers __ALLOW_USER__
+
+MaxAuthTries 3
+LoginGraceTime 30
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Local port forwarding stays on: VS Code Remote-SSH tunnels through it. Nothing
+# forwarded may bind beyond loopback, and agent/X11/tunnel forwarding are off
+# until something actually needs them.
+AllowTcpForwarding local
+GatewayPorts no
+AllowAgentForwarding no
+X11Forwarding no
+PermitTunnel no
+
+# VERBOSE logs the fingerprint of the key used for each login
+# (Event Viewer > Applications and Services Logs > OpenSSH > Operational).
+LogLevel VERBOSE
+
+AuthorizedKeysFile .ssh/authorized_keys
+Subsystem sftp sftp-server.exe
+
+# Windows-specific: sshd ignores ~/.ssh/authorized_keys for members of
+# Administrators and reads only this file. The recipe keeps it in sync.
+Match Group administrators
+       AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys

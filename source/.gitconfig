@@ -1,6 +1,5 @@
 [core]
   excludesfile = ~/.git-excludes-file
-  sshCommand = ssh -i ~/.ssh/github.com-tdb -o IdentitiesOnly=yes
 
 [init]
   defaultBranch = main
@@ -72,7 +71,7 @@
   path = ~/.gitconfig-identities
 [credential "https://github.com"]
 	helper = 
-	helper = !/opt/homebrew/bin/gh auth git-credential
+	helper = !gh auth git-credential
 [credential "https://gist.github.com"]
 	helper = 
-	helper = !/opt/homebrew/bin/gh auth git-credential
+	helper = !gh auth git-credential

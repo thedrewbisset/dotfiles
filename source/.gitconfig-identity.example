@@ -11,7 +11,7 @@
   name = <github-username>
   email = <email>
 
-# Optional. Omit to use the default key from .gitconfig.
+# Optional. Omit to use the key .ssh/config picks for the host.
 [core]
   sshCommand = ssh -i ~/.ssh/<key-name> -o IdentitiesOnly=yes
 

@@ -1,0 +1,5 @@
+# Store text as LF and check it out as LF on every platform. Without this, a Windows
+# clone with core.autocrlf=true turns the bash recipes (most have no extension, so no
+# per-extension rule would catch them) into CRLF scripts that fail with '\r' errors.
+# Windows PowerShell 5.1 runs LF .ps1 files without complaint.
+* text=auto eol=lf
