@@ -33,7 +33,7 @@ $ModelRoot = if ($env:OLLAMA_MODELS) { $env:OLLAMA_MODELS } else { "${letter}:\m
 
 $installed = [bool](Get-Command ollama -ErrorAction SilentlyContinue)
 $vars = @('OLLAMA_MODELS', 'OLLAMA_FLASH_ATTENTION', 'OLLAMA_KV_CACHE_TYPE',
-  'OLLAMA_MAX_LOADED_MODELS', 'OLLAMA_KEEP_ALIVE')
+  'OLLAMA_MAX_LOADED_MODELS', 'OLLAMA_KEEP_ALIVE', 'OLLAMA_CONTEXT_LENGTH')
 $setVars = @($vars | Where-Object { $null -ne [Environment]::GetEnvironmentVariable($_, 'User') })
 
 if (-not $installed -and -not $setVars.Count -and -not (Test-Path -LiteralPath $ModelRoot)) {

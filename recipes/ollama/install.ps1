@@ -8,6 +8,7 @@
 #   OLLAMA_MODELS          <DEVDRIVE_LETTER>:\models\ollama
 #   OLLAMA_RECIPE_MODELS   qwen3:8b,qwen2.5-coder:7b,qwen3:4b,qwen2.5vl:7b  (comma separated)
 #   OLLAMA_KEEP_ALIVE      30m
+#   OLLAMA_CONTEXT_LENGTH  16384
 #
 # Why these four. The default set is sized for an 8 GB-class CUDA card, where
 # roughly 7.2 GiB of the 8 is usable for weights plus KV cache once the CUDA context
@@ -47,8 +48,12 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $Root 'bin\lib\tools.ps1')
 
 $Port = 11434
-# The default set is 17.1 GB, so this leaves real slack rather than just clearing it.
-$MinFreeGB = 24
+# Set from measured peak, not from apparent size. Pulling the 17.1 GB default set
+# consumed 29.5 GB of an ReFS Dev Drive: the weights account for 17.1 GB of live
+# files and the rest is deleted download temporaries that ReFS reclaims lazily rather
+# than at once. A floor of 30 covers that peak and still lets a re-run pass, since a
+# re-run with every model already present downloads nothing.
+$MinFreeGB = 30
 
 # The letter follows the devdrive recipe's DEVDRIVE_LETTER so the two cannot disagree.
 $letter = if ($env:DEVDRIVE_LETTER) { $env:DEVDRIVE_LETTER } else { 'D' }
@@ -94,16 +99,25 @@ function Stop-Ollama {
 
 function Start-Ollama {
   if (Test-OllamaUp) { return }
-  # The tray app is preferred: it is what a normal login starts, so using it here
-  # means this recipe exercises the same path the machine will use every day.
-  $app = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama app.exe'
-  if (Test-Path -LiteralPath $app) {
-    Start-Process -FilePath $app | Out-Null
-  } else {
-    $ollama = (Get-Command ollama -ErrorAction SilentlyContinue).Source
-    if (-not $ollama) { throw 'ollama is not on PATH, so the server cannot be started.' }
-    Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden | Out-Null
+  # 'ollama serve', deliberately not 'ollama app.exe'.
+  #
+  # The tray app is what a normal login starts, and the installer registers it for
+  # that, so it is tempting to use here as well. But it is a GUI program: it needs an
+  # interactive window station to place its tray icon, which neither an SSH logon nor
+  # a backgrounded shell has. Started from one it exits without ever binding the port,
+  # which is indistinguishable from a slow start and times out below. 'serve' is a
+  # console program and comes up in any session, so the recipe uses it for its own
+  # pulls and leaves the tray app to the next login.
+  $ollama = (Get-Command ollama -ErrorAction SilentlyContinue).Source
+  if (-not $ollama) {
+    # PATH in this shell can predate the install even after Update-SessionPath, so
+    # fall back to where the per-user installer puts it.
+    $ollama = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
   }
+  if (-not (Test-Path -LiteralPath $ollama)) {
+    throw "Cannot find ollama.exe to start the server (checked PATH and $ollama)."
+  }
+  Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden | Out-Null
   for ($i = 0; $i -lt 60; $i++) {
     if (Test-OllamaUp) {
       Write-Host "ollama server is up on 127.0.0.1:$Port"
@@ -111,7 +125,8 @@ function Start-Ollama {
     }
     Start-Sleep -Milliseconds 500
   }
-  throw "The ollama server did not come up on 127.0.0.1:$Port within 30s."
+  throw ("The ollama server did not come up on 127.0.0.1:$Port within 30s. Run " +
+    "'ollama serve' by hand to see why it refused to start, then re-run this recipe.")
 }
 
 # 0. Where this shell thinks %LOCALAPPDATA% is.
@@ -164,10 +179,16 @@ $settings = [ordered]@{
   # later. Required for the KV cache quantisation below, and it lowers prefill cost
   # on long prompts either way.
   OLLAMA_FLASH_ATTENTION   = '1'
-  # The highest-value setting on an 8 GB card: a q8_0 KV cache halves the per-token
-  # cost, which is what turns a 16K context on an 8B model into a 32K one. The
-  # accuracy cost is small, but it is not zero -- drop this variable to compare.
+  # Halves the per-token KV cost, which is what makes the context below affordable.
+  # The accuracy cost is small, but it is not zero -- drop this variable to compare.
   OLLAMA_KV_CACHE_TYPE     = 'q8_0'
+  # ollama defaults to 4096, which is short for coding and long-document work, and
+  # without this the KV setting above buys nothing because nothing asks for a bigger
+  # window. 16384 is the measured ceiling for an 8B model on 8 GB: 'ollama ps' reports
+  # 6.3 GB and 100% GPU at 16384 with no throughput cost against 4096, while 32768
+  # reaches 8.2 GB, spills to 22%/78% CPU/GPU, and loses about 40% of its speed. Raise
+  # it on a larger card, and check 'ollama ps' still says 100% GPU afterwards.
+  OLLAMA_CONTEXT_LENGTH    = '16384'
   # Two resident models would not fit in 8 GB together, and the loser gets offloaded
   # to system RAM, where it runs several times slower for no gain.
   OLLAMA_MAX_LOADED_MODELS = '1'

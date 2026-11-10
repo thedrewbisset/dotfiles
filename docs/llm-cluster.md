@@ -137,10 +137,15 @@ at fp16 -- so 1 GiB per 8K of context. A `q8_0` KV cache halves it. Models using
 sliding-window attention (Gemma 3 among them) cost far less than the formula suggests
 and are disproportionately good on small cards.
 
+Treat the result as a floor rather than a budget. Measured against `ollama ps` on an
+8B model with a q8_0 cache, growing 4K to 16K cost about 85 KiB per token where the
+formula predicts 72, and 16K to 32K about 119 KiB -- because the compute buffers grow
+with context too, and faster than linearly. Allow headroom, then confirm placement.
+
 **3. Estimate generation speed from bandwidth, not from FLOPS.**
 
 ```
-tok/s ~= (VRAM_bandwidth_GB_s / resident_size_GB) * 0.8
+tok/s ~= (VRAM_bandwidth_GB_s / resident_size_GB) * 0.9
 ```
 
 Check the bus width of any card before trusting its model number: a 128-bit card can
@@ -148,6 +153,18 @@ have barely half the bandwidth of an older, wider one, and that halves the answe
 above. For hybrid GPU + CPU execution, the harmonic mean of the two bandwidths
 weighted by the fraction of weights on each side gets you close, and it is always
 worse than the arithmetic intuition suggests.
+
+The `0.9` is calibrated against measurement, not assumed. Four 2.9-5.3 GB models
+measured on one 8 GB card came out at 0.91 to 1.05 of their bandwidth ceiling with
+flash attention and a q8_0 KV cache on. An earlier `0.8` here was too pessimistic by
+10-40%, so prefer measuring to trusting the formula.
+
+**Measure warm, not cold.** A model's first generation after loading from disk reports
+badly inflated timings -- in one case 12 tok/s against a true 49 -- because load and
+warmup bleed into the numbers. Generate twice and keep the second. `ollama ps` is the
+ground truth for placement: its `PROCESSOR` column says `100% GPU` or gives the split,
+and its `SIZE` and `CONTEXT` columns are what the budget arithmetic above should be
+checked against.
 
 **4. Prefer fully resident over partially offloaded.** This is the rule that most
 often gets broken. A smaller model entirely in VRAM usually beats a larger one that
@@ -214,12 +231,17 @@ pinned model directory.
 | Variable | Value | Why |
 |---|---|---|
 | `OLLAMA_FLASH_ATTENTION` | `1` | FlashAttention-2, on any NVIDIA card of compute capability 8.0 or later. Required for the KV cache setting below, and cheaper prefill either way. |
-| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves per-token KV cost, which is what turns a 16K context on an 8B model into a 32K one. The accuracy cost is small but not zero. |
+| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves per-token KV cost, which is what makes the context below affordable. The accuracy cost is small but not zero. |
+| `OLLAMA_CONTEXT_LENGTH` | `16384` | ollama defaults to 4096, short for coding and long-document work. Without this the KV setting above buys nothing, because nothing asks for a bigger window. |
 | `OLLAMA_MAX_LOADED_MODELS` | `1` | Two models do not fit in 8 GB together; the loser is offloaded to system RAM and runs several times slower. |
 | `OLLAMA_KEEP_ALIVE` | `30m` | Reloading several GB of weights dominates short interactive turns. Free when nothing else is using the GPU. |
 
-Raise the last two on a card with more VRAM, and drop `OLLAMA_KV_CACHE_TYPE` to
-compare quality against an unquantised cache.
+The context figure is measured rather than derived. On an 8 GB card an 8B model at
+`num_ctx` 4096, 8192 and 16384 all stay at 100% GPU and all generate at the same rate;
+at 32768 the same model reaches 8.2 GB, spills to a 22%/78% CPU/GPU split, and loses
+about 40% of its throughput. So 16384 is free and 32768 is expensive, with nothing in
+between to tune. Raise it on a larger card and confirm `ollama ps` still reports
+100% GPU; drop `OLLAMA_KV_CACHE_TYPE` to compare quality against an unquantised cache.
 
 Still to do, and the reason this is only half of step 3 below: a **gateway**. One
 OpenAI-compatible endpoint in front of the per-machine runtimes (LiteLLM, llama-swap
