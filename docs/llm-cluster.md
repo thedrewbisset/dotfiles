@@ -1,11 +1,14 @@
 # Local LLM cluster
 
-Running local models across the machines on a private LAN: what the hardware
-supports, what the available tooling actually does, and which of the two things
-people mean by "use the collective compute" is worth building.
+Running local models across the machines on a private LAN: what the available tooling
+actually does, which of the two things people mean by "use the collective compute" is
+worth building, and a method for working out what any one node can hold.
 
-The inventory scripts described at the end collect the numbers this planning needs.
-Nothing here installs a runtime yet; that waits on real figures for every node.
+**This document is design and method only.** It deliberately contains no hardware
+profile, no host name and no per-machine numbers. Those are correlatable inventory of
+a kind a public repository should not carry, so they stay local -- see
+*[Taking inventory](#taking-inventory)* for where they go and why. Apply the method
+below to your own collected figures.
 
 ---
 
@@ -36,22 +39,27 @@ You buy **capacity, not speed**. One published two-node measurement reported 48
 tok/s falling to 5 tok/s, around a 90% loss. Treat that as a single, older
 datapoint rather than a benchmark, but the direction is the point.
 
-With six nodes this gets worse, not better: pipeline depth is a liability, because
-every extra hop is latency added to every token. If a model has to be split, split
-it across the two or three strongest machines and leave the rest out of it.
+More nodes make this worse, not better: pipeline depth is a liability, because every
+extra hop is latency added to every token. If a model has to be split, split it
+across the two or three strongest machines and leave the rest out of it.
 
 ## The interconnect comes first
 
-Before any software, check what the nodes are actually talking over. On the Windows
-node the inventory found a **2.5GbE port sitting disconnected while the machine
-routed over Wi-Fi 6** at a 1.2 Gbps negotiated rate.
+**This section applies to clustering only.** For a model running on one machine the
+network is not in the path at all -- no bytes cross it per token -- so nothing here
+is a constraint on single-node inference. It affects how fast weights download, and
+nothing else. Do not let it into a single-machine sizing decision.
 
-That number flatters Wi-Fi. It is a half-duplex shared medium with variable
-multi-millisecond latency, and distributed inference pays that jitter *per token*
-rather than once per bulk transfer. Plugging in the wired port is the cheapest
-large win available here, and it costs nothing. `fleet-inventory.sh` flags this
-case in its notes, because an idle wired port beside a working wireless link is
-easy to miss and expensive to keep.
+For clustering, check what the nodes are actually talking over before choosing any
+software. The common and costly case is **a wired port sitting disconnected while the
+machine routes over Wi-Fi**, which is easy to miss precisely because everything
+works. Wireless flatters itself on paper: it is a half-duplex shared medium with
+variable multi-millisecond latency, and distributed inference pays that jitter *per
+token* rather than once per bulk transfer. Plugging in the cable usually improves the
+latency floor more than it improves nominal bandwidth, and it costs nothing.
+
+`fleet-inventory.sh` flags this case in its notes, because an idle wired port beside
+a working wireless link is both easy to overlook and expensive to keep.
 
 ## Options surveyed
 
@@ -60,7 +68,7 @@ easy to miss and expensive to keep.
 | **llama.cpp RPC backend** | Start here if capacity pooling is genuinely needed. The most mature option and the only comfortable one for mixed CUDA + Metal + CPU nodes. |
 | **exo** | Verify before investing -- the repository found for it is archived. |
 | **prima.cpp** | Research-grade, but aimed exactly at heterogeneous low-resource home clusters. Closest match to this problem. |
-| **vLLM + Ray** | Excellent and production-grade, but not for this cluster: it wants homogeneous GPUs, a fast interconnect, and more than 8 GB per worker. |
+| **vLLM + Ray** | Excellent and production-grade, but not for a cluster like this: it wants homogeneous GPUs, a fast interconnect, and more than 8 GB per worker. |
 | **Petals** | A different problem -- swarm serving of very large models. |
 
 **llama.cpp RPC.** Build with `-DGGML_RPC=ON` on every machine, run `rpc-server` on
@@ -88,54 +96,135 @@ repository's current state first.
 
 ## What to build instead
 
-For six machines on a LAN, throughput pooling is almost certainly the better
+For a handful of machines on a LAN, throughput pooling is almost certainly the better
 investment:
 
 - **One runtime per machine behind a single endpoint.** A gateway such as a LiteLLM
-  proxy, llama-swap, or plain nginx gives one OpenAI-compatible URL, six-way
+  proxy, llama-swap, or plain nginx gives one OpenAI-compatible URL, N-way
   concurrency, and per-model routing. This is the highest value for the least
   effort.
 - **Specialise by hardware.** The strongest GPU takes the interactive chat and
   coding model. Weaker boxes take embeddings, rerankers, speech-to-text, and OCR,
   all of which are small and tolerate modest hardware.
 - **Batch work scales nearly linearly.** Document embedding, dataset generation,
-  and eval suites are embarrassingly parallel, so six machines really do finish
-  roughly six times sooner. This is where a LAN cluster genuinely shines, and it
+  and eval suites are embarrassingly parallel, so N machines really do finish
+  roughly N times sooner. This is where a LAN cluster genuinely shines, and it
   needs none of the tooling above.
 - **Keep speculative decoding on one box.** Draft and verifier models must sit
   together; a network round trip per token erases the benefit entirely.
 
-## Node profiles
+## Sizing a node
 
-Hardware classes only -- real inventory, with host names and addresses, stays out
-of this repo (see *Taking inventory* below).
+The method, to apply to the figures `scripts/inventory.ps1` or `inventory.sh`
+collects. Four numbers decide everything: VRAM capacity, VRAM bandwidth, system RAM
+capacity, and system RAM bandwidth.
 
-**The Windows node.** Ryzen 7 7700 (8 cores / 16 threads), RTX 3060 Ti with 8192
-MiB of VRAM at compute capability 8.6, and **15.2 GB of RAM in a single DDR5-6000
-module**. Compute 8.6 is a good place to be: bf16, INT8/INT4 tensor cores, and
-FlashAttention-2 are all supported, with first-class support in llama.cpp CUDA,
-ollama, and exllamav2.
+**1. Usable VRAM is not total VRAM.** Subtract roughly 0.5-1.0 GiB for the CUDA (or
+Metal) context and the runtime's compute buffers. Subtract another 1.0-1.5 GiB if the
+desktop is drawn by this GPU. A machine with an integrated GPU should drive its
+display from that instead and leave the discrete card idle -- `nvidia-smi` reporting
+`display_active: Disabled` and `memory.used: 0 MiB` is the confirmation, and it is
+the cheapest GB of VRAM available anywhere.
 
-Two constraints matter more than the GPU:
+**2. Weights and KV cache share that budget.** Per-token KV cost is
 
-- **Single-channel memory.** One module roughly halves memory bandwidth. It costs
-  nothing while a model sits entirely in VRAM, but the moment anything spills to
-  system RAM throughput roughly halves. A second matching module is the single
-  highest-value upgrade, and it reaches 32 GB at the same time.
-- **Storage for weights.** The 64 GB ReFS Dev Drive holds `D:\models`, which four
-  or five 7B files plus one 14B will fill. The `devdrive` recipe caps the backing
-  file at 64 GB and growing it later is straightforward (`diskpart` `expand vdisk`,
-  then extend the partition), so decide early whether to expand it or keep weights
-  on the system drive.
+```
+bytes_per_token = 2 * layers * kv_heads * head_dim * bytes_per_element
+```
 
-What fits in 8 GB of VRAM, at roughly Q4:
+which for a typical 8B model with grouped-query attention is around 128 KiB per token
+at fp16 -- so 1 GiB per 8K of context. A `q8_0` KV cache halves it. Models using
+sliding-window attention (Gemma 3 among them) cost far less than the formula suggests
+and are disproportionately good on small cards.
 
-| Model class | Q4 weights | On an 8 GB card |
+**3. Estimate generation speed from bandwidth, not from FLOPS.**
+
+```
+tok/s ~= (VRAM_bandwidth_GB_s / resident_size_GB) * 0.8
+```
+
+Check the bus width of any card before trusting its model number: a 128-bit card can
+have barely half the bandwidth of an older, wider one, and that halves the answer
+above. For hybrid GPU + CPU execution, the harmonic mean of the two bandwidths
+weighted by the fraction of weights on each side gets you close, and it is always
+worse than the arithmetic intuition suggests.
+
+**4. Prefer fully resident over partially offloaded.** This is the rule that most
+often gets broken. A smaller model entirely in VRAM usually beats a larger one that
+spills, on both speed *and* quality -- because the quant needed to make the larger one
+nearly fit does more damage than the extra parameters repair. Dropping a dense model
+to 3-bit to squeeze it in is reliably a downgrade.
+
+**5. Distinguish dense from MoE when sizing system RAM.** For a mixture-of-experts
+model only a few billion parameters are active per token, so hybrid execution with
+experts in system RAM stays usable. For a dense model it does not: a 24B dense model
+at Q4 runs in the low single-digit tok/s regardless of how much RAM is fitted,
+because the limit is RAM *bandwidth*, not capacity. This is why "add more RAM" helps
+MoE and does nothing for dense -- and why it is worth knowing which you are buying
+for before spending.
+
+As a rough map, at Q4 and allowing for a useful context window:
+
+| Model class | Q4 weights | Wants |
 |---|---|---|
-| 3-4B | ~2-2.5 GB | Trivial and fast. Good for autocomplete, classification, cheap local tooling. |
-| 7-8B | ~4.5-5 GB | The sweet spot: fully GPU-resident with room for a useful context window. |
-| 12-14B | ~7.5-8.5 GB | Marginal. Needs a smaller quant and a short context to stay resident, or it spills. |
-| 30B-class MoE | ~17 GB | Few active parameters per token makes it tempting, but it fits neither the VRAM nor comfortably in system RAM. Revisit after the memory upgrade. |
+| 3-4B dense | 2-3 GB | 6 GB VRAM. Trivial; good for autocomplete and classification. |
+| 7-8B dense | 4.5-5 GB | 8 GB VRAM. The sweet spot on consumer cards. |
+| 12-14B dense | 7.5-9 GB | 12 GB VRAM. Marginal at 8 GB -- it will spill. |
+| 20-24B dense | 12-15 GB | 16-24 GB VRAM. Not worth running hybrid. |
+| 30B-class MoE, ~3B active | 17-19 GB | 24 GB VRAM, or ~32 GB system RAM for hybrid. |
+| 70B dense | 40 GB+ | Multiple GPUs, or the capacity pooling above. |
+
+Keep the resulting per-machine conclusions out of this repository. A short sizing note
+beside the collected inventory is the right home; see below.
+
+## Running models
+
+`bin\install.ps1 ollama` installs the runtime on a Windows node and pulls a default
+set of models sized for an **8 GB-class CUDA card** -- `qwen3:8b` for interactive
+work, `qwen2.5-coder:7b` for editor completion (it has the fill-in-middle tokens that
+needs, and no Qwen3 coder is small enough), `qwen3:4b` for anything that should feel
+instant, and `qwen2.5vl:7b` for image input, since the other three are text-only.
+About 17.1 GB of weights in total.
+
+Four models on an 8 GB card is not a contradiction: `OLLAMA_MAX_LOADED_MODELS` is 1,
+so they swap rather than compete, and each one past the first costs disk rather than
+VRAM. Sizing is per model, not per set.
+
+**Choosing a vision model** is the one case where parameter count is the wrong
+yardstick. Fidelity on dense text and documents comes from the vision encoder's input
+resolution, so a model with a native dynamic-resolution encoder beats a larger one
+with a fixed low-resolution encoder at the same size. The VRAM cost is also different
+in kind: visual tokens land in the KV cache, so what a small card limits is image size
+and count per prompt, not whether the model loads. Cap input pixels rather than
+reaching for a smaller model.
+
+It is opt-in and not in `all`, because downloading model weights is not something a
+machine bootstrap should do as a side effect.
+
+Override the set with `OLLAMA_RECIPE_MODELS` (comma separated) and the location with
+`OLLAMA_MODELS`, which otherwise follows `DEVDRIVE_LETTER` to `<letter>:\models\ollama`
+-- a subdirectory rather than the root of `models\`, so a second runtime's raw GGUFs
+can live beside it without the two interleaving.
+
+The recipe also pins four server settings that an 8 GB budget calls for. They are read
+by the ollama *server*, not the CLI, which is why the recipe restarts it after writing
+them: a server left running from before keeps its old values and silently ignores the
+pinned model directory.
+
+| Variable | Value | Why |
+|---|---|---|
+| `OLLAMA_FLASH_ATTENTION` | `1` | FlashAttention-2, on any NVIDIA card of compute capability 8.0 or later. Required for the KV cache setting below, and cheaper prefill either way. |
+| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves per-token KV cost, which is what turns a 16K context on an 8B model into a 32K one. The accuracy cost is small but not zero. |
+| `OLLAMA_MAX_LOADED_MODELS` | `1` | Two models do not fit in 8 GB together; the loser is offloaded to system RAM and runs several times slower. |
+| `OLLAMA_KEEP_ALIVE` | `30m` | Reloading several GB of weights dominates short interactive turns. Free when nothing else is using the GPU. |
+
+Raise the last two on a card with more VRAM, and drop `OLLAMA_KV_CACHE_TYPE` to
+compare quality against an unquantised cache.
+
+Still to do, and the reason this is only half of step 3 below: a **gateway**. One
+OpenAI-compatible endpoint in front of the per-machine runtimes (LiteLLM, llama-swap
+or nginx) is what turns several boxes each running ollama into something worth calling
+a cluster. Nothing distributed is required for it.
 
 ## Taking inventory
 
@@ -175,21 +264,23 @@ block and so accepts the collector's top-level `param()`), which means a node ca
 never run a stale copy.
 
 Results are written to `${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/inventory/`,
-outside the repo. That is deliberate: a collected set names every machine and its
-LAN address, which is exactly the inventory a public dotfiles repo must not carry.
-`.gitignore` also refuses it in-tree, as a second line of defence.
+outside the repo. That is deliberate, and it is where **per-machine sizing notes
+belong too**: a collected set names every machine and its hardware, which is exactly
+the inventory a public dotfiles repo must not carry. `.gitignore` also refuses
+`inventory/` in-tree, as a second line of defence.
 
 Load your key into the agent first (`ssh-add`) if it has a passphrase, or SSH will
 prompt once per host.
 
 ## Next steps
 
-1. **Wire up the Windows node** and re-run the inventory to confirm the link speed.
-2. **Collect the other five nodes**, then revisit which machine should be primary.
-   If any has more VRAM than 8 GB, that one takes the interactive model.
+1. **Wire up any node still on Wi-Fi** and re-run the inventory to confirm the link
+   speed. Clustering only; a single node never touches the network.
+2. **Collect every node**, then decide which machine should be primary. The one with
+   the most VRAM takes the interactive model.
 3. **Stand up one runtime plus a gateway** before attempting anything distributed.
-   An `ollama` recipe pinning `OLLAMA_MODELS` to `D:\models` with `Set-UserEnv`
-   would follow the pattern the other Windows recipes already use.
+   The runtime is done: `bin\install.ps1 ollama` (see *[Running models](#running-models)*).
+   The gateway is not.
 4. **Only then** evaluate llama.cpp RPC, and only if a model worth running fits
    nowhere on a single node.
 
