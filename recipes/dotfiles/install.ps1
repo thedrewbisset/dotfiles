@@ -127,7 +127,18 @@ $profileLink = if ($Target -eq $HOME) {
 # change, so it reports the problem and links nothing; the rest is already done.
 $oneDriveRoots = @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial) | Where-Object { $_ }
 $inOneDrive = @($oneDriveRoots | Where-Object { $profileLink -like (Join-Path $_ '*') }).Count -gt 0
-if (-not $inOneDrive) { $inOneDrive = $profileLink -like '*\OneDrive\*' }
+# Fallback for a process whose environment block does not name the root $PROFILE is
+# under. The variables live in HKCU\Environment and so survive a reboot, but a process
+# inherits its block at creation: a shell open before OneDrive added an account keeps
+# the stale copy. OneDrive follows whichever account connected first and
+# OneDriveCommercial is absent until a work account exists, so neither is guaranteed to
+# name the right root. A work root is "OneDrive - <Tenant>", not "OneDrive", so
+# matching only "\OneDrive\" would let that case through. Each pattern keeps what
+# follows the name -- a separator, or the " - " before a tenant -- so a sibling folder
+# such as "OneDriveBackups" is not mistaken for a sync root.
+if (-not $inOneDrive) {
+  $inOneDrive = ($profileLink -like '*\OneDrive\*') -or ($profileLink -like '*\OneDrive - *')
+}
 if ($inOneDrive) {
   Write-Host ''
   Write-Warning "The PowerShell profile path is inside OneDrive ($profileLink), so it was NOT linked. OneDrive either skips a symlink with a sync error or follows it and uploads the file, which hands every other machine on the account a stale copy."
