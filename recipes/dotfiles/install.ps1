@@ -50,10 +50,53 @@ if ((Test-Path -LiteralPath $sshConfig) -and -not (Get-LinkTarget $sshConfig)) {
   Set-Link (Join-Path $Root 'source\.ssh\config') $sshConfig
 }
 
-# 3. The dev root. The letter follows the devdrive recipe's DEVDRIVE_LETTER so the
-# two cannot disagree.
+# 2b. Keys the SSH config names but this machine does not have.
+#
+# Every host entry pins a key with IdentitiesOnly, so a missing key does not fall back
+# to whatever the agent holds: the clone just fails with "Permission denied (publickey)"
+# much later, with nothing pointing back here. Keys are generated per machine and never
+# committed (README, SSH key setup), so this warns rather than fails.
+if (Test-Path -LiteralPath $sshConfig) {
+  $missingKeys = [ordered]@{}
+  foreach ($line in Get-Content -LiteralPath $sshConfig) {
+    if ($line -notmatch '^\s*IdentityFile\s+(.+?)\s*$') { continue }
+    $ref = $Matches[1].Trim('"')
+    # -replace rather than TrimStart(char[]): one regex, no character-literal quoting.
+    $keyPath = if ($ref.StartsWith('~')) { Join-Path $Target ($ref.Substring(1) -replace '^[\\/]+', '') } else { $ref }
+    if (-not (Test-Path -LiteralPath $keyPath)) { $missingKeys[$ref] = $keyPath }
+  }
+  if ($missingKeys.Count) {
+    Write-Host ''
+    Write-Warning 'SSH keys named by .ssh/config are not on this machine. A git remote that uses one fails with "Permission denied (publickey)", and IdentitiesOnly means ssh will not try another key from the agent instead.'
+    foreach ($ref in $missingKeys.Keys) { Write-Host "  $ref" }
+    Write-Host '    Fix: ssh-keygen -t ed25519 -f <path> -C "<comment>", then add the .pub file to the matching GitHub account (README, SSH key setup).'
+    Write-Host '    HTTPS remotes are unaffected: they authenticate through gh.'
+    Write-Host ''
+  }
+}
+
+# 3. The dev root, in order of precedence:
+#   DEV_ROOT         an explicit choice, and the only way to say "no Dev Drive on this
+#                    machine": a box that keeps its repos in a plain folder sets this
+#                    once and the recipe keeps it, re-runs included.
+#   DEVDRIVE_LETTER  follows the devdrive recipe, so the drive and the dev root cannot
+#                    disagree about the letter.
+#   D:\src           the default both recipes assume.
 $letter = if ($env:DEVDRIVE_LETTER) { $env:DEVDRIVE_LETTER } else { 'D' }
-$devRoot = "${letter}:\src"
+$fromLetter = "${letter}:\src"
+$devRoot = $fromLetter
+$rootSource = if ($env:DEVDRIVE_LETTER) { 'DEVDRIVE_LETTER' } else { 'the default' }
+if ($env:DEV_ROOT) {
+  # Trimmed: Set-Location -LiteralPath rejects a trailing space where Test-Path accepts
+  # it, so a stray one in the variable would put an error in front of every login. The
+  # length guard keeps a drive root ("D:\") whole while dropping "D:\src\" to "D:\src".
+  $devRoot = $env:DEV_ROOT.Trim()
+  if ($devRoot.Length -gt 3) { $devRoot = $devRoot.TrimEnd('\', '/') }
+  $rootSource = 'DEV_ROOT'
+  if ($devRoot -ne $fromLetter) {
+    Write-Host "Dev root: $devRoot (from DEV_ROOT; DEVDRIVE_LETTER would give $fromLetter)"
+  }
+}
 # A user environment variable is machine-wide, with no per-target equivalent, so a
 # -Target run reports it rather than writing it -- the same reason the gh recipe uses
 # `git config --file` over `--global`.
@@ -63,7 +106,7 @@ if ($Target -eq $HOME) {
   Write-Host "Would set DEV_ROOT=$devRoot (skipped: -Target run, and the user environment is machine-wide)"
 }
 if (-not (Test-Path -LiteralPath $devRoot)) {
-  Write-Warning "DEV_ROOT is $devRoot, which does not exist yet. Create the Dev Drive with an elevated: bin\install.ps1 devdrive. The profile skips the cd until it is there."
+  Write-Warning "The dev root $devRoot (from $rootSource) does not exist, so the profile skips its cd until it does. Either create the Dev Drive with an elevated: bin\install.ps1 devdrive -- or, to keep repos in a plain folder instead, set DEV_ROOT to that folder (setx DEV_ROOT <path>, then a new shell) and re-run this recipe."
 }
 
 # 4. The PowerShell profile.
@@ -77,8 +120,24 @@ $profileLink = if ($Target -eq $HOME) {
 } else {
   Join-Path $Target 'Documents\WindowsPowerShell\profile.ps1'
 }
-New-Item -ItemType Directory -Force (Split-Path -Parent $profileLink) | Out-Null
-Set-Link (Join-Path $Root 'source\windows\profile.ps1') $profileLink
+# Nothing from this repo goes into a OneDrive-backed folder. With Known Folder Move on
+# for Documents, $PROFILE lands inside OneDrive, and a link there is either skipped with
+# a sync error or followed -- uploading the file and handing every other machine on the
+# account a stale real copy of it. Where Documents points is not this recipe's to
+# change, so it reports the problem and links nothing; the rest is already done.
+$oneDriveRoots = @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial) | Where-Object { $_ }
+$inOneDrive = @($oneDriveRoots | Where-Object { $profileLink -like (Join-Path $_ '*') }).Count -gt 0
+if (-not $inOneDrive) { $inOneDrive = $profileLink -like '*\OneDrive\*' }
+if ($inOneDrive) {
+  Write-Host ''
+  Write-Warning "The PowerShell profile path is inside OneDrive ($profileLink), so it was NOT linked. OneDrive either skips a symlink with a sync error or follows it and uploads the file, which hands every other machine on the account a stale copy."
+  Write-Host '    Fix: in OneDrive, Settings > Sync and backup > Manage backup, turn Documents off; move what you want to keep back to %USERPROFILE%\Documents; then re-run this recipe.'
+  Write-Host '    Until then an SSH login starts in the home directory rather than the dev root.'
+  Write-Host ''
+} else {
+  New-Item -ItemType Directory -Force (Split-Path -Parent $profileLink) | Out-Null
+  Set-Link (Join-Path $Root 'source\windows\profile.ps1') $profileLink
+}
 # PowerShell 7 reads Documents\PowerShell\profile.ps1 instead. Nothing installs it
 # here, and sshd launches Windows PowerShell, so only 5.1's profile is linked.
 
@@ -116,7 +175,11 @@ if ($missing.Count) {
       $template = Join-Path $Root 'source\.gitconfig-identity.example'
     }
     if (Test-Path -LiteralPath $template) {
-      Write-Host "    Fix: copy source\$(Split-Path -Leaf $template) to source\$base, fill it in, then re-run this recipe."
+      # To the home path, not into source\: the macOS recipe links everything in
+      # source/, so a copy left there becomes ~/<name>, but this one links a fixed list
+      # and never links identity files. Git reads the copy as soon as it exists, so
+      # there is nothing to re-run either.
+      Write-Host "    Fix: copy source\$(Split-Path -Leaf $template) to $m and fill it in."
     } else {
       Write-Host "    Fix: create $m with the identity it should supply."
     }

@@ -49,6 +49,11 @@ function Remove-UserEnv([string]$Name) {
 
 # Puts $Dir at the front of the *user* PATH (persisted), ahead of WindowsApps, whose
 # python/python3 "App execution alias" stubs would otherwise shadow real installs.
+# Note: the user PATH is read back expanded, so rewriting it resolves any %VAR% entries
+# -- including Windows' own %USERPROFILE%\AppData\Local\Microsoft\WindowsApps -- to
+# literal paths, and stores the result as REG_SZ rather than REG_EXPAND_SZ. Nothing
+# breaks on a machine whose profile stays put; it would matter on one that relies on
+# those variables resolving per-user or per-session.
 function Add-UserPathEntry([string]$Dir) {
   $entries = @([Environment]::GetEnvironmentVariable('Path', 'User') -split ';' | Where-Object { $_ })
   if ($entries.Count -gt 0 -and $entries[0] -ieq $Dir) { return }

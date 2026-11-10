@@ -115,7 +115,10 @@ if ($query -notmatch 'trusted developer volume') {
 $lines = @($query -split "`n" | ForEach-Object { $_.Trim() })
 $start = [array]::FindIndex([string[]]$lines, [Predicate[string]] { param($l) $l -like 'Filters currently attached*' })
 $filters = @()
-if ($start -ge 0) {
+# $start + 1 has to be a real index: a heading with nothing after it makes the range
+# count *down* (N..N-1), which hands back the heading itself as a filter name and warns
+# about a third-party antivirus that is not there.
+if ($start -ge 0 -and ($start + 1) -lt $lines.Count) {
   $filters = @($lines[($start + 1)..($lines.Count - 1)] | Where-Object { $_ -and $_ -ne 'WdFilter' })
 }
 if ($filters.Count) {
