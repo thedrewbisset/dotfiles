@@ -70,8 +70,21 @@ Set-Location D:\src\dotfiles
 
 Restart once at some point and confirm `D:` comes back by itself.
 
-Skip this step to use a plain folder instead (e.g. `~\dev`); nothing else depends on
-the Dev Drive.
+Dev Drive needs Windows 11 build 10.0.22621.2338 or later and at least 8 GB of RAM
+([Microsoft's requirements](https://learn.microsoft.com/windows/dev-drive)), neither of
+which the recipe checks. On a machine that misses them the disk is still created and
+attached and only the format fails, leaving an attached, unformatted disk and a `.vhdx`
+on `C:`: delete the file and use a plain folder.
+
+Skip this step to use a plain folder instead. Tell the `dotfiles` recipe where it is,
+or it will assume `D:\src` and warn that the path is missing:
+
+```powershell
+setx DEV_ROOT "$env:USERPROFILE\dev"     # then open a new shell
+```
+
+`DEV_ROOT` wins over `DEVDRIVE_LETTER`, and the recipe keeps whatever it already says,
+so this survives every re-run.
 
 ## 3. Install git and turn the folder into a clone (recipe)
 
@@ -113,7 +126,24 @@ powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
 - **What it links.** `.gitconfig`, `.git-excludes-file`, `.ssh/config`, and
   `source/windows/profile.ps1` to the PowerShell profile. An existing *real*
   `~/.ssh/config` is left alone, as on macOS. It also sets `DEV_ROOT`, which is what
-  makes an SSH login land in `D:\src` (see [Where things live](#where-things-live)).
+  makes an SSH login land in `D:\src` (see [Where things live](#where-things-live)) --
+  or wherever `DEV_ROOT` already points, which is how a machine without a Dev Drive
+  names its own dev root (step 2).
+- **OneDrive must not hold the profile (manual).** Windows often redirects Documents
+  into OneDrive ("Known Folder Move"), which puts `$PROFILE` inside a synced folder. The
+  recipe refuses to link it there and says so: OneDrive either skips a symlink with a
+  sync error or follows it and uploads the file, which would hand every other machine on
+  the account a stale copy of `profile.ps1`. Nothing from this repo belongs in a synced
+  folder. Turn the redirection off at the machine -- OneDrive > Settings > Sync and
+  backup > Manage backup > Documents off -- move anything you want to keep from
+  `%USERPROFILE%\OneDrive\Documents` back to `%USERPROFILE%\Documents`, then re-run the
+  recipe. `$PROFILE.CurrentUserAllHosts` should then sit under `%USERPROFILE%\Documents`.
+  Desktop and Pictures are usually redirected along with it; neither affects the recipes.
+- **SSH keys (manual).** `.ssh/config` pins a key per host with `IdentitiesOnly`, so a
+  key this machine does not have means "Permission denied (publickey)" rather than a
+  fallback to whatever the agent holds. The recipe lists the ones it cannot find;
+  generate them as in the README's SSH key setup. HTTPS remotes are unaffected, since
+  they authenticate through gh.
 - **gh login (manual).** The `gh` recipe offers it; answer the browser or device-code
   prompt yourself. Shells opened before the recipe ran do not have `GH_CONFIG_DIR`
   yet and report "not logged in" -- open a new one.
@@ -128,10 +158,14 @@ powershell -ExecutionPolicy Bypass -File bin\install.ps1 hooks
 - **Commit identity (manual).** `.gitconfig` routes identities through
   `~\.gitconfig-identities`, which is gitignored and so never arrives with the repo.
   The `dotfiles` recipe warns when an include is missing, because git ignores one
-  silently and the first symptom is a commit under the wrong name. Copy
-  `source\.gitconfig-identities.example` and `source\.gitconfig-identity.example`,
-  fill them in, and remember that `includeIf "gitdir:..."` patterns need *this*
-  machine's paths with forward slashes -- `gitdir:D:/src/work/`, not the macOS
+  silently and the first symptom is a commit under the wrong name. Copy the templates
+  **into your home directory**, not into `source\`: `source\.gitconfig-identities.example`
+  to `~\.gitconfig-identities`, and `source\.gitconfig-identity.example` to one
+  `~\.gitconfig-<name>` per account. The macOS recipe links everything in `source/`, so
+  a copy left there becomes `~/<name>`; this one links a fixed list and never links
+  identity files, so a copy in `source\` changes nothing. Git reads them as soon as they
+  exist -- nothing needs re-running. Remember that `includeIf "gitdir:..."` patterns need
+  *this* machine's paths with forward slashes -- `gitdir:D:/src/work/`, not the macOS
   home-relative ones. Or skip all that and set it on the clone:
 
   ```powershell
@@ -311,6 +345,7 @@ git config --system core.autocrlf                                            # f
 git config core.hooksPath                                                    # hooks
 (Get-Item ~\.gitconfig -Force).Target                                        # ...\source\.gitconfig
 $env:DEV_ROOT                                                                # D:\src
+(Get-Item $PROFILE.CurrentUserAllHosts -Force).Target                        # ...\source\windows\profile.ps1
 ssh -G github.com | Select-String identityfile                               # the config parses
 python3 -c "import sys; print(sys.executable)"                               # under ~\.local\share\uv
 gh auth status
@@ -328,7 +363,7 @@ wsl -d Ubuntu -- claude --version                                            # 2
 | What | Where | Set by |
 |---|---|---|
 | Dev Drive | `D:` from `C:\DevDrives\dev.vhdx`, task `\dotfiles\Mount Dev Drive` | `devdrive` |
-| Repos | `D:\src\`, and `DEV_ROOT` points at it | `devdrive`, `dotfiles` |
+| Repos | `D:\src\`, and `DEV_ROOT` points at it (set `DEV_ROOT` first to choose another) | `devdrive`, `dotfiles` |
 | Linked dotfiles | `~\.gitconfig`, `~\.git-excludes-file`, `~\.ssh\config` -> `source\` | `dotfiles` |
 | PowerShell profile | `$PROFILE.CurrentUserAllHosts` -> `source\windows\profile.ps1` | `dotfiles` |
 | Git identities | `~\.gitconfig-identities` and the files it includes | you (gitignored) |
@@ -398,6 +433,10 @@ network type, router) are left as they are.
   prompt without a tty. Re-run the `gh` recipe, which points the helper at gh
   instead; `git config --get-urlmatch credential https://github.com` should print
   `!gh auth git-credential`.
+- **An SSH login starts in the home directory, not the dev root**: either `DEV_ROOT` is
+  unset or its path is not there (`$env:DEV_ROOT`, step 2), or the profile was never
+  linked because `$PROFILE` is inside OneDrive (step 4). The profile also leaves a shell
+  alone deliberately when it did not start in the home directory.
 - **"Permission denied (publickey)"**: the key is not in
   `administrators_authorized_keys` yet; re-run the `openssh-server` recipe elevated
   (6d). **"Too many authentication failures"**: add `IdentitiesOnly yes` (6c).

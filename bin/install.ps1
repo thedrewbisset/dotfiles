@@ -15,7 +15,12 @@
 [CmdletBinding()]
 param(
   [Parameter(Position = 0)][string]$Recipe,
-  # Alternate home directory, mirroring install.sh --target.
+  # Alternate home directory, mirroring install.sh --target. It redirects what a recipe
+  # writes into a home directory; it is not a sandbox for the machine. The gh and uv
+  # recipes still pin user environment variables (GH_CONFIG_DIR, UV_*) and the front of
+  # the user PATH to the real home, because those are per-user and machine-wide with no
+  # per-target equivalent. Values are the same either way, so a -Target run does not
+  # corrupt anything -- it just is not invisible.
   [string]$Target = $HOME
 )
 $ErrorActionPreference = 'Stop'
