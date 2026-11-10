@@ -40,6 +40,8 @@ $Recipes = [ordered]@{
   devdrive = 'Create the Dev Drive (ReFS virtual disk) and its layout (run elevated)'
   # Opt-in: opens a network service, so it is never installed as a side effect of 'all'.
   'openssh-server' = 'LAN-only, key-only SSH server (run elevated)'
+  # Opt-in: downloads several GB of model weights. Wants the Dev Drive to exist first.
+  ollama = 'Install ollama, weights pinned to the Dev Drive, with the models this GPU can hold'
 }
 
 function Show-Usage {
