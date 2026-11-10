@@ -40,6 +40,8 @@ $Recipes = [ordered]@{
   devdrive = 'Create the Dev Drive (ReFS virtual disk) and its layout (run elevated)'
   # Opt-in: opens a network service, so it is never installed as a side effect of 'all'.
   'openssh-server' = 'LAN-only, key-only SSH server (run elevated)'
+  # Opt-in: installs a Linux distro, and needs a restart partway through.
+  wsl = 'WSL 2 and tmux, for sessions that outlive a dropped SSH connection (run elevated)'
 }
 
 function Show-Usage {

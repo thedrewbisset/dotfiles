@@ -232,6 +232,76 @@ ssh-keyscan -t ed25519 <lan-ip> | ssh-keygen -lf -
 
 ---
 
+## 7. tmux over SSH (optional, recipe)
+
+Opt-in, elevated, and it needs one restart in the middle:
+
+```powershell
+bin\install.ps1 wsl       # enables the WSL features, then stops for a restart
+# restart, reconnect, then the same command again:
+bin\install.ps1 wsl       # registers the distro, installs tmux, links the config
+```
+
+- **Why WSL and not something native.** `sshd` puts each login session in a job object
+  marked `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` and keeps the handle itself, so the end
+  of a session kills everything still inside the job. A child process inherits that
+  membership and `Start-Process` cannot ask to break away, so a backgrounded job dies
+  with the connection -- the POSIX reflex does not apply here. WSL's processes are not
+  Windows processes and are in no Windows job: they run in the WSL VM under
+  `wslservice.exe`, so a tmux server there outlives the session that started it, and
+  any terminal can reattach over plain `ssh`.
+- **The stub is not the real `wsl.exe`.** Until WSL is installed,
+  `C:\Windows\System32\wsl.exe` takes only `--install`, `--update`, `--status` and
+  `--help`, and refuses anything else by printing "The Windows Subsystem for Linux is
+  not installed" and exiting 1 -- whatever it actually objected to. So the recipe
+  enables the features with DISM and installs the WSL package through winget
+  (`Microsoft.WSL`), instead of letting the stub's bare `--install` choose a
+  distribution and launch it.
+- **`--no-launch` matters.** A distro's first run asks for a UNIX account name and
+  password on the console, which would hang a recipe driven over SSH. The recipe
+  registers the distro without launching it and creates the user itself.
+- **Passwordless sudo, deliberately.** `wsl --user root` needs no password and never
+  will, so a sudo password inside the distro guards nothing while making every run
+  interactive. It is a drop-in at `/etc/sudoers.d/90-dotfiles-wsl`, validated with
+  `visudo -c` before it is installed; the recipe says how to swap it for a real
+  password.
+- **The config is linked, not copied**, from `/mnt/<letter>/.../source/.tmux.conf`, so
+  there is one copy of it and an edit on the Windows side is live at the next tmux
+  start. `D:` is ReFS and which volumes automount is WSL's call, so the recipe reads
+  the file from inside the distro first and links nothing when it cannot, rather than
+  leaving a dangling link behind.
+- **`claude`, not `claude.exe`.** Claude Code stays on the Windows side -- one
+  install, one auth, one session history, and the same project key, since the working
+  directory translates back to `D:\src\dotfiles`. The recipe installs a shim at
+  `/usr/local/bin/claude` inside the distro, because interop resolves Windows
+  executables by extension only and a plain `claude` would not be found. It is a
+  script rather than a symlink for a second reason: WSL builds an interop process's
+  Windows environment from the `wsl.exe` client that started the distro session, not
+  from the Linux environment. When that client was itself a Claude Code tool call --
+  as it is whenever an agent starts the server on your behalf -- `claude.exe` inherits
+  `CLAUDE_CODE_CHILD_SESSION`, reads itself as a subprocess and stops saving its
+  transcript, so that session cannot afterwards be resumed. The shim exports each
+  marker empty and names it in `WSLENV`, the one lever that reaches the Windows side,
+  which drops it from the child outright.
+- **What survives.** A dropped connection, yes. A restart or `wsl --shutdown`, no:
+  after either, `prefix + Ctrl-r` restores the tree tmux-resurrect saved, which lives
+  in the distro's home rather than on the Windows side.
+
+```powershell
+wsl -d Ubuntu -- tmux new -A -s main    # attach, creating it if needed
+wsl -d Ubuntu -- tmux ls
+claude                                  # inside the session
+```
+
+Worth confirming once, because everything above rests on it: start a detached session
+(`wsl -d Ubuntu -- tmux new -d -s probe`), drop the SSH connection, reconnect, and
+check `wsl -d Ubuntu -- tmux ls` still lists it. Measured here from the other
+direction too: `wslservice.exe` is a sibling of the sshd *service*, started before the
+login session exists, and a process launched through interop is in no job object at
+all, while the SSH shell itself is in one.
+
+---
+
 ## Verify
 
 ```powershell
@@ -247,6 +317,10 @@ gh auth status
 Get-Service sshd | Select Status, StartType                                  # Running, Automatic
 Get-NetFirewallRule -Name dotfiles-sshd-lan | Get-NetFirewallAddressFilter   # RemoteAddress LocalSubnet
 Get-NetConnectionProfile | Select Name, NetworkCategory                      # Private at home
+wsl -d Ubuntu -- tmux -V                                                     # tmux 3.x
+wsl -d Ubuntu -- readlink -f ~/.tmux.conf                                    # ...\source\.tmux.conf
+wsl -d Ubuntu -- command -v claude                                           # /usr/local/bin/claude
+wsl -d Ubuntu -- claude --version                                            # 2.x (Claude Code)
 ```
 
 ## Where things live
@@ -265,6 +339,7 @@ Get-NetConnectionProfile | Select Name, NetworkCategory                      # P
 | Claude Code | `~\.local\bin\claude.exe`, state in `~\.claude` | `claude` |
 | Deny-list | `~\.config\exponential\denylist.txt` | you |
 | sshd config, keys | `C:\ProgramData\ssh\` | `openssh-server` |
+| WSL distro, tmux | the distro's own ext4 disk; its `~/.tmux.conf` -> `/mnt/d/src/dotfiles/source/.tmux.conf` | `wsl` |
 
 ## Teardown
 
@@ -278,6 +353,7 @@ bin\teardown.ps1 uv               # removes the python3 the hooks need
 bin\teardown.ps1 gh
 bin\teardown.ps1 dotfiles         # unlinks; new shells start at ~ again
 bin\teardown.ps1 git              # last thing needing git
+bin\teardown.ps1 wsl              # elevated; unregisters the distro only if you type DELETE
 bin\teardown.ps1 devdrive         # elevated, from a copy of the repo NOT on D:
 ```
 
@@ -288,10 +364,12 @@ deny-list, which is shared with every other clone and worktree; `uv` keeps proje
 `.venv` directories; `dotfiles` removes only links pointing inside this repo, so a
 hand-written file or a link elsewhere is reported and kept, and it restores any
 `.pre-dotfiles` copy it made; `devdrive` detaches the drive and deletes the backing
-file only if you type `DELETE`. Tearing down `uv` or `hooks` means commits here stop being
-checked against the deny-list -- `uv` takes `python3` away, so the gate refuses every
-commit until the recipe runs again. The manual steps (Defender, network type, router)
-are left as they are.
+file only if you type `DELETE`; `wsl` stops the distro and unregisters it -- its home
+directory and resurrect saves with it -- only on the same typed confirmation, and
+leaves the two Windows features enabled. Tearing down `uv` or `hooks` means commits
+here stop being checked against the deny-list -- `uv` takes `python3` away, so the
+gate refuses every commit until the recipe runs again. The manual steps (Defender,
+network type, router) are left as they are.
 
 ## Troubleshooting
 
@@ -323,3 +401,21 @@ are left as they are.
 - **"Permission denied (publickey)"**: the key is not in
   `administrators_authorized_keys` yet; re-run the `openssh-server` recipe elevated
   (6d). **"Too many authentication failures"**: add `IdentitiesOnly yes` (6c).
+- **`wsl` output reads as `U b u n t u`**, with a space between every character:
+  wsl.exe writes UTF-16LE and Windows PowerShell 5.1 reads it in the ANSI code page.
+  The `wsl` recipe sets `WSL_UTF8=1` for your shells; one opened before that needs
+  reopening. Nothing is wrong with the distro.
+- **A tmux session is gone after a restart**: expected, since the WSL VM went with it
+  (step 7). `wsl -d Ubuntu -- tmux new -A -s main` starts a fresh server and
+  `prefix + Ctrl-r` restores the saved tree. A dropped SSH connection is the case that
+  does leave the server running.
+- **Claude in the distro says "Transcript saving is off -- inherited
+  CLAUDE_CODE_CHILD_SESSION marker"**: `claude.exe` was run instead of `claude`, inside
+  a tmux server whose own `wsl.exe` client was a Claude Code session. That session will
+  not be resumable, so start again. Use `claude`, which exists for this reason, and to
+  check a pane: `cmd.exe /c "echo [%CLAUDE_CODE_CHILD_SESSION%]"` printing the name
+  back unexpanded means nothing was inherited.
+- **`~/.tmux.conf` was not linked**: the distro could not read the repo under `/mnt`,
+  which the recipe reports rather than guessing. Check `wsl -d Ubuntu -- ls /mnt`;
+  `D:` is a ReFS Dev Drive, and whether WSL automounts it is WSL's decision, not this
+  repo's.

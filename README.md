@@ -223,10 +223,11 @@ They target Windows PowerShell 5.1, which ships with Windows, and install throug
 | `claude` | yes | Claude Code CLI via Anthropic's native installer |
 | `devdrive` | no | A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) at `D:` (expandable virtual disk, 64 GB cap) with `src`, `caches`, `models`, re-attached at boot. Run elevated, normally first |
 | `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
+| `wsl` | no | WSL 2 and a distro with tmux, so a session outlives a dropped SSH connection ([below](#tmux-over-ssh)). Run elevated; needs one restart partway through |
 
-Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `dotfiles` removes only links that point inside this repo, restoring any `.pre-dotfiles` copy it made; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
+Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `dotfiles` removes only links that point inside this repo, restoring any `.pre-dotfiles` copy it made; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `wsl`'s stops the distro and unregisters it — filesystem and home directory with it — only on a typed confirmation, leaving the Windows features enabled; `openssh-server`'s undoes its configuration. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
 
-Three files in `source/` are linked here, because they are the ones Windows tools read. The rest belong to tools this side does not have — zsh, oh-my-zsh, tmux, ruby, psql, bats, paperclip, vim — and `.claude` is skipped for the same reason as on macOS: it is Claude Code's live home, not config. `source/windows/` holds the Windows-only files that have no `$HOME` dotfile path of their own; `profile.ps1` is linked to `$PROFILE.CurrentUserAllHosts`, read from `$PROFILE` rather than built by hand because Documents is often redirected into OneDrive.
+Three files in `source/` are linked here, because they are the ones Windows tools read. The rest belong to tools this side does not have — zsh, oh-my-zsh, ruby, psql, bats, paperclip, vim, and tmux, which has no native Windows build and is set up inside WSL instead ([below](#tmux-over-ssh)) — and `.claude` is skipped for the same reason as on macOS: it is Claude Code's live home, not config. `source/windows/` holds the Windows-only files that have no `$HOME` dotfile path of their own; `profile.ps1` is linked to `$PROFILE.CurrentUserAllHosts`, read from `$PROFILE` rather than built by hand because Documents is often redirected into OneDrive.
 
 The dev root is `DEV_ROOT` (`D:\src`, following `DEVDRIVE_LETTER`). `sshd` has no working-directory option and drops a login in `%USERPROFILE%`, so the linked profile moves there — but only when the shell starts in the home directory, so a terminal opened inside a project stays put and an explicit `cd` in an SSH command still wins, and only when the drive is attached, since the boot-time mount task can be slower than the first login.
 
@@ -264,6 +265,30 @@ Host <alias>
 `IdentitiesOnly yes` matters: the server allows three attempts, and an agent holding several GitHub keys uses them all up first.
 
 `bin\teardown.ps1 openssh-server` stops and disables sshd, removes the firewall rule, restores the original config, and offers to remove the Windows feature. Host keys are kept, so a reinstall keeps the same fingerprint.
+
+### tmux over SSH
+
+`bin\install.ps1 wsl`, from an elevated PowerShell. Opt-in, and it needs one restart partway through: enabling the two Windows features WSL 2 depends on does not take effect until then, so the recipe stops, says so, and picks up where it left off when you run it again.
+
+Why WSL rather than something native: `sshd` puts every login session in a job object marked `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` and holds the handle itself, so the end of a session kills everything still inside the job. A child inherits that membership and `Start-Process` cannot ask to break away, so backgrounding a long job does not outlive a disconnect here — the POSIX reflex simply does not apply. WSL's processes are not Windows processes and are in no Windows job: they run in the WSL VM, which `wslservice.exe` keeps alive. A tmux server started through `wsl.exe` therefore outlives both the client that started it and the session that client belonged to, and it is reattachable from any terminal over plain `ssh` — no particular client, which a WezTerm-style mux server would have required.
+
+What the recipe does: enables the two features with DISM and installs the WSL package from winget (`Microsoft.WSL`), rather than going through the pre-install `wsl.exe` stub, which takes only four arguments and whose bare `--install` would pull in a distribution and launch its console account prompt; registers the distro with `--no-launch`, so its first-run account prompt cannot block a non-interactive run; creates the login user and makes it the distro's default; gives that user passwordless `sudo`, deliberately, because `wsl --user root` needs no password and never will, so a password there guards nothing while making every run interactive; installs tmux; links the distro's `~/.tmux.conf` to this repo's `source/.tmux.conf`; and runs tpm's own installer for the plugins that file declares, the same non-interactive half of tpm that `recipes/tmux` does on macOS; and installs the `claude` shim described below.
+
+```powershell
+wsl -d Ubuntu -- tmux new -A -s main   # attach, creating it if needed
+wsl -d Ubuntu -- tmux ls               # what is running
+claude                                 # inside the session, not claude.exe
+```
+
+Claude Code itself stays on the Windows side — one install, one auth, one session history, and because the working directory translates to `D:\src\dotfiles` either way the project key is identical, so `--continue` and the project's memory directory carry straight across. What the recipe adds inside the distro is a `claude` shim at `/usr/local/bin/claude`, and it earns its keep twice. Interop resolves Windows executables by extension only, so the command in a distro is `claude.exe` and a plain `claude` is not found — that much would be a symlink. The rest is why it is a script: WSL does not build an interop process's environment from the Linux one, it restores the environment captured from the `wsl.exe` client that started the distro session. When that client was itself a Claude Code tool call — which it is whenever an agent starts the tmux server on your behalf — every `claude.exe` launched in it inherits `CLAUDE_CODE_CHILD_SESSION`, reads itself as a subprocess and turns transcript saving off. That session cannot afterwards be resumed, which is exactly the property this recipe exists to provide, and the only warning is one line at startup. Measured here, the Linux side is clean throughout — pane, shell and tmux server all carry nothing — and only the interop side has them, eleven variables of it. `WSLENV` is the single lever that reaches that side, so the shim exports each marker empty and names it there, which removes it from the child outright rather than passing it through blank. Run `claude`, not `claude.exe`.
+
+The config is linked rather than copied, so it has one copy and an edit on the Windows side is live at the next tmux start. That link crosses the `/mnt` boundary, which this repo does not get to guarantee: `D:` is ReFS and which volumes automount is WSL's call, so the recipe reads the file from inside the distro first and, when it cannot, links nothing and says why, rather than leaving a dangling link behind.
+
+A session survives a dropped connection, not a restart or `wsl --shutdown`. After either, start a session and restore the saved tree with `prefix + Ctrl-r`; tmux-resurrect's saves live in the distro's home, not on the Windows side.
+
+One known gap: `source/.tmux.conf` pipes copy-mode yanks to `pbcopy`, which does not exist in a distro. Yanking to the Windows clipboard would need `clip.exe` behind an `if-shell`, and that is a change to the shared config, so it is left alone for now.
+
+`bin\teardown.ps1 wsl` stops the distro and unregisters it — deleting its filesystem, home directory and any resurrect saves — only if you type `DELETE`. The Windows features stay enabled; it prints the `dism` commands if you want them gone.
 
 ---
 
