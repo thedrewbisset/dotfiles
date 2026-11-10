@@ -286,7 +286,7 @@ The config is linked rather than copied, so it has one copy and an edit on the W
 
 A session survives a dropped connection, not a restart or `wsl --shutdown`. After either, start a session and restore the saved tree with `prefix + Ctrl-r`; tmux-resurrect's saves live in the distro's home, not on the Windows side.
 
-One known gap: `source/.tmux.conf` pipes copy-mode yanks to `pbcopy`, which does not exist in a distro. Yanking to the Windows clipboard would need `clip.exe` behind an `if-shell`, and that is a change to the shared config, so it is left alone for now.
+Copy-mode yanks reach the clipboard in front of you rather than the one on the machine running the server, which over `ssh` are not the same thing. tmux hands the selection to the terminal emulator over OSC 52 — `set-clipboard` is `external` by default and the client advertises the capability — so a yank in a distro pane lands on the Mac's clipboard, provided iTerm has "Applications in terminal may access clipboard" turned on. Alongside that, `copy-command` names a local tool for when the server and the human are on the same machine, chosen when the config loads: `pbcopy` on macOS, `clip.exe` in a distro. One file decides both, because the distro reads this repo's `source/.tmux.conf` over `/mnt` rather than keeping a copy of its own.
 
 `bin\teardown.ps1 wsl` stops the distro and unregisters it — deleting its filesystem, home directory and any resurrect saves — only if you type `DELETE`. The Windows features stay enabled; it prints the `dism` commands if you want them gone.
 
