@@ -25,7 +25,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 Update-SessionPath
 
 # Recipes run by 'all', in order.
-$All = @('git', 'dotfiles', 'gh', 'uv', 'hooks', 'claude')
+$All = @('git', 'dotfiles', 'gh', 'uv', 'fnm', 'hooks', 'claude')
 
 # Every Windows recipe, with its help text. Opt-in recipes are listed here but not in $All.
 $Recipes = [ordered]@{
@@ -34,6 +34,8 @@ $Recipes = [ordered]@{
   dotfiles = 'Link the dotfiles Windows reads and make the Dev Drive the dev root'
   gh    = 'Install the GitHub CLI via winget and offer to log in'
   uv    = 'Install uv and a uv-managed Python (provides python3 for the hooks)'
+  # After dotfiles, which links the profile that puts node on PATH.
+  fnm   = 'Install fnm and Node, versions and npm cache on the Dev Drive'
   hooks = 'Enable the privacy gate git hooks'
   claude = 'Install the Claude Code CLI (agent config is managed elsewhere)'
   # Opt-in: creates a disk, and normally runs once before the repo moves onto it.
@@ -42,6 +44,10 @@ $Recipes = [ordered]@{
   'openssh-server' = 'LAN-only, key-only SSH server (run elevated)'
   # Opt-in: downloads several GB of model weights. Wants the Dev Drive to exist first.
   ollama = 'Install ollama, weights pinned to the Dev Drive, with the models this GPU can hold'
+  # Opt-in: tools for a particular kind of work, not part of bootstrapping a machine.
+  opencode = 'Install the OpenCode CLI, a second agentic harness for the local models'
+  # After fnm: a global npm install.
+  pi    = 'Install Pi and point it at the local models (the leanest prompt of the three)'
 }
 
 function Show-Usage {

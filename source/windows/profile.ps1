@@ -30,3 +30,37 @@ if ($devRoot -and (Test-Path -LiteralPath $devRoot)) {
     try { Set-Location -LiteralPath $devRoot -ErrorAction Stop } catch { }
   }
 }
+
+# Node, via fnm (recipes/fnm). This block is only for *switching* versions per
+# directory -- the default version is already on PATH, because the recipe puts fnm's
+# aliases\default junction there, so node works in cmd, in Git Bash and in anything
+# that does not read this file.
+#
+# --use-on-cd is what makes .nvmrc and .node-version work without thinking about it.
+# Worth knowing what it does rather than discovering it: on PowerShell it does not
+# hook the prompt, it aliases `cd` to a wrapper that calls `fnm use
+# --silent-if-unchanged` when the directory holds .nvmrc, .node-version or
+# package.json. About 14 ms when it fires, and nothing when it does not.
+#
+# Three guards, in order of cost, because evaluating 'fnm env' is a process spawn and
+# costs about 40 ms of every shell start -- including the one-shot SSH commands this
+# file is supposed to stay out of the way of. So it only runs when it will do
+# something:
+#   FNM_DIR set. The recipe writes it as a user variable, since it has to be in the
+#   environment before fnm reads it and so cannot be set here.
+#   A default alias on disk. Without this, 'fnm env' still succeeds and still aliases
+#   cd, but activates nothing -- a shell with a cd hook and no node, which is a worse
+#   state to debug than no integration at all.
+#   fnm on PATH. Last because it scans PATH, where the two above are a variable read
+#   and one Test-Path.
+$fnmDir = if ($env:FNM_DIR) { $env:FNM_DIR.Trim() } else { $null }
+if ($fnmDir -and (Test-Path -LiteralPath (Join-Path $fnmDir 'aliases\default'))) {
+  if (Get-Command fnm -ErrorAction SilentlyContinue) {
+    # Same contract as the Set-Location above: a convenience, never a reason for a
+    # shell to fail or print anything. An Invoke-Expression of broken input would
+    # otherwise put errors in front of every login.
+    try {
+      fnm env --use-on-cd --shell powershell | Out-String | Invoke-Expression
+    } catch { }
+  }
+}

@@ -29,6 +29,14 @@ github.com/paperclipai/paperclip
 github.com/kjaiswal/llama-cpp-distributed-benchmarks
 github.com/exo-explore/ex-exo
 
+# fnm's upstream, linked from the README. Installed from winget (Schniz.fnm), not
+# from a clone.
+github.com/Schniz/fnm
+
+# Cited by docs/local-llm.md: the Pi coding agent's upstream. Referenced, not
+# installed -- it needs a Node runtime this side does not have.
+github.com/badlogic/pi-mono
+
 # An SSH URL, not an address.
 git@github.com
 
