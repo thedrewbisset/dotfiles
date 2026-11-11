@@ -9,6 +9,7 @@
 #   OLLAMA_RECIPE_MODELS   qwen3:8b,qwen2.5-coder:7b,qwen3:4b,qwen2.5vl:7b  (comma separated)
 #   OLLAMA_KEEP_ALIVE      30m
 #   OLLAMA_CONTEXT_LENGTH  16384
+#   OLLAMA_RECIPE_AGENT    qwen3-agent:4b=qwen3:4b@32768   (name=base@window; '' to skip)
 #
 # Why these four. The default set is sized for an 8 GB-class CUDA card, where
 # roughly 7.2 GiB of the 8 is usable for weights plus KV cache once the CUDA context
@@ -35,6 +36,19 @@
 # alternative if images only ever need a glance. The VRAM cost of vision is those
 # visual tokens landing in the KV cache, so on 8 GB the practical limit is image size
 # and count per prompt, not whether the model loads.
+#
+# The recipe also derives one extra model, qwen3-agent:4b, for driving an agentic
+# coding harness. That is a different job from interactive chat and it sizes
+# differently: a harness sends its system prompt and the JSON schema of every tool it
+# owns on every turn, which measures about 14K tokens before the conversation starts.
+# A 16K window leaves nothing, so the window matters more than the parameter count,
+# and the model that wins is the one holding the biggest window on the GPU -- a 4B at
+# 32768 stays 100% GPU where an 8B at 32768 spills. The window has to be baked into a
+# derived model because OLLAMA_CONTEXT_LENGTH is server-wide and neither the OpenAI
+# nor the Anthropic surface has anywhere to put a per-request num_ctx; raising the
+# server default to 32768 would spill the 8B that chat uses. Derived models share the
+# parent's weight blobs, so this costs a manifest and no measurable disk.
+# See docs/local-llm.md, and bin\claude-local.ps1 for the harness side.
 #
 # Weights go in a subdirectory of the Dev Drive's models/ rather than its root, so a
 # second runtime's raw GGUFs (llama.cpp, should the cluster plan ever get there) can
@@ -68,17 +82,28 @@ $Models = if ($env:OLLAMA_RECIPE_MODELS) {
   @('qwen3:8b', 'qwen2.5-coder:7b', 'qwen3:4b', 'qwen2.5vl:7b')
 }
 
-# True when something is listening on the ollama API port.
-function Test-OllamaUp {
-  $client = New-Object Net.Sockets.TcpClient
-  try {
-    $client.Connect('127.0.0.1', $Port)
-    return $true
-  } catch {
-    return $false
-  } finally {
-    $client.Close()
+# The derived harness models, as a comma-separated list of 'name=base@window'. Set
+# OLLAMA_RECIPE_AGENT to 'none' to skip them, or to different triples on a card with
+# another budget. 'none' rather than the empty string because assigning '' to $env: on
+# Windows removes the variable, which is indistinguishable from never having set it.
+#
+# Two of them, because the right window is per *harness*, not per machine, and the
+# difference is not a preference:
+#   @32768  free -- 100% GPU at full speed. Enough for a harness with a small prompt.
+#   @65536  spills to system RAM and costs about 45% of throughput, and is the
+#           smallest window a harness with a ~14K prompt can do multi-file work in.
+#           Measured, Claude Code at 32768 aborts a three-file task with "autocompact
+#           is thrashing"; at 65536 the same task completes.
+$AgentSpec = if ($env:OLLAMA_RECIPE_AGENT) { $env:OLLAMA_RECIPE_AGENT } else { 'qwen3-agent:4b=qwen3:4b@32768,qwen3-agent64:4b=qwen3:4b@65536' }
+if ($AgentSpec -eq 'none') { $AgentSpec = '' }
+$Agents = @()
+foreach ($spec in ($AgentSpec -split ',')) {
+  $spec = $spec.Trim()
+  if (-not $spec) { continue }
+  if ($spec -notmatch '^([^=]+)=([^@]+)@(\d+)$') {
+    throw "OLLAMA_RECIPE_AGENT entries must look like 'name=base@window'; got '$spec'."
   }
+  $Agents += [pscustomobject]@{ Name = $Matches[1]; Base = $Matches[2]; Window = [int]$Matches[3] }
 }
 
 # 'ollama app' is the tray application that owns the server process; 'ollama' is both
@@ -91,35 +116,31 @@ function Stop-Ollama {
   # Give the port time to come free, so a Start-Ollama straight after cannot find the
   # old server still holding it and conclude it is the new one.
   for ($i = 0; $i -lt 20; $i++) {
-    if (-not (Test-OllamaUp)) { break }
+    if (-not (Test-OllamaUp $Port)) { break }
     Start-Sleep -Milliseconds 250
   }
   return $true
 }
 
 function Start-Ollama {
-  if (Test-OllamaUp) { return }
+  if (Test-OllamaUp $Port) { return }
   # 'ollama serve', deliberately not 'ollama app.exe'.
   #
-  # The tray app is what a normal login starts, and the installer registers it for
-  # that, so it is tempting to use here as well. But it is a GUI program: it needs an
+  # The tray app is what a normal login starts. But it is a GUI program: it needs an
   # interactive window station to place its tray icon, which neither an SSH logon nor
   # a backgrounded shell has. Started from one it exits without ever binding the port,
   # which is indistinguishable from a slow start and times out below. 'serve' is a
   # console program and comes up in any session, so the recipe uses it for its own
-  # pulls and leaves the tray app to the next login.
-  $ollama = (Get-Command ollama -ErrorAction SilentlyContinue).Source
-  if (-not $ollama) {
-    # PATH in this shell can predate the install even after Update-SessionPath, so
-    # fall back to where the per-user installer puts it.
-    $ollama = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
-  }
-  if (-not (Test-Path -LiteralPath $ollama)) {
-    throw "Cannot find ollama.exe to start the server (checked PATH and $ollama)."
-  }
+  # pulls, and step 4b registers the same command as a logon task.
+  #
+  # A note on "the installer registers the tray app for login", which this comment used
+  # to claim: it does not, or at least a winget install does not. Checked -- no Run
+  # key entry, no Startup shortcut, no service, no task. The tray app appears to write
+  # its own Run entry when it first runs, and it never runs here. Hence step 4b.
+  $ollama = Get-OllamaExe
   Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden | Out-Null
   for ($i = 0; $i -lt 60; $i++) {
-    if (Test-OllamaUp) {
+    if (Test-OllamaUp $Port) {
       Write-Host "ollama server is up on 127.0.0.1:$Port"
       return
     }
@@ -219,6 +240,54 @@ Write-Host (ollama --version)
 if (Stop-Ollama) { Write-Host 'Stopped the running ollama server to pick up the new settings' }
 Start-Ollama
 
+# 4b. Make the server come back after a restart.
+#
+# Checked rather than assumed, and the assumption was wrong: after a winget install
+# there is no Ollama entry under either Run key, nothing in the Startup folder, no
+# service and no scheduled task. The tray app writes its own Run entry when it first
+# runs, and it never does here, because it is a GUI program with no window station to
+# start in (see Start-Ollama). So without this, the server lives exactly as long as
+# the shell that started it, and every harness breaks after the next reboot with a
+# connection refused that looks like a configuration problem.
+#
+# A logon task running 'ollama serve' rather than a Run entry for the tray app: the
+# same reasoning as Start-Ollama, plus a Run entry would flash a console window. At
+# logon rather than at startup, and as this user rather than SYSTEM, because the
+# OLLAMA_* settings above are *user* environment variables -- a SYSTEM task would not
+# read them and would quietly serve 4096-token contexts out of the default model
+# directory.
+#
+# What this trigger does *not* cover: an OpenSSH logon arrives as logon type 3,
+# Network, and a Task Scheduler logon trigger fires on interactive logons only --
+# console, RDP, unlock. So a machine that reboots and is then reached only over SSH
+# finds this task Ready and nothing listening. source/windows/profile.ps1 closes that
+# gap from the other side, probing the port when SSH_CONNECTION is set and starting
+# this task if it is closed. Covering it here instead would mean an S4U principal and
+# an at-startup trigger, which needs an elevation nothing else in this recipe does --
+# see docs/verify-local-llm.md for the command, kept as a deliberate choice.
+if ($Target -eq $HOME) {
+  $taskName = 'Serve ollama'
+  $action = New-ScheduledTaskAction -Execute (Get-OllamaExe) -Argument 'serve'
+  # The account name comes from the token, not from "$env:USERDOMAIN\$env:USERNAME".
+  # On a machine that is not domain-joined USERDOMAIN can be the literal 'WORKGROUP',
+  # and 'WORKGROUP\<user>' has no SID to map to -- Register-ScheduledTask fails with
+  # "No mapping between account names and security IDs was done". WindowsIdentity
+  # returns what the OS actually calls the account, '<machine>\<user>', which resolves.
+  $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+  Register-ScheduledTask -TaskPath '\dotfiles\' -TaskName $taskName -Force -ErrorAction Stop `
+    -Description 'Start the ollama server at logon. Managed by the dotfiles ollama recipe.' `
+    -Action $action `
+    -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $account) `
+    -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)) `
+    -Principal (New-ScheduledTaskPrincipal -UserId $account -LogonType Interactive) | Out-Null
+  # Confirmed, not assumed: Register-ScheduledTask reports some failures without
+  # stopping the script, and an unregistered task would be announced as done.
+  if (-not (Get-ScheduledTask -TaskPath '\dotfiles\' -TaskName $taskName -ErrorAction SilentlyContinue)) {
+    throw "The logon task '$taskName' was not registered, so the server would not come back after a restart."
+  }
+  Write-Host "Logon task registered (\dotfiles\$taskName), so the server survives a reboot"
+}
+
 if ($Target -ne $HOME) {
   Write-Host 'Skipping the model pulls: a -Target run has no pinned model directory to put them in.'
   return
@@ -232,12 +301,38 @@ foreach ($model in $Models) {
   Assert-ExitCode "ollama pull $model"
 }
 
-# 6. Report. Confirmed from the server rather than assumed from the pulls: a model
+# 6. The derived harness models. Skipped rather than failed when a base is not in the
+# model set, since a custom OLLAMA_RECIPE_MODELS is a deliberate choice and these are
+# an extra rather than a requirement.
+$expected = @($Models)
+$created = @()
+foreach ($agent in $Agents) {
+  if ($Models -notcontains $agent.Base) {
+    Write-Host "Skipping $($agent.Name): its base model $($agent.Base) is not in this run's model set."
+    continue
+  }
+  Write-Step "Creating $($agent.Name) ($($agent.Base) at a $($agent.Window)-token window)"
+  $modelfile = Join-Path $env:TEMP "dotfiles-$($agent.Name -replace '[^\w.-]', '_').Modelfile"
+  # ASCII and no BOM: ollama parses this as bytes, and PowerShell 5.1's redirection
+  # defaults would hand it UTF-16.
+  $lines = @("FROM $($agent.Base)", "PARAMETER num_ctx $($agent.Window)")
+  [IO.File]::WriteAllLines($modelfile, $lines, (New-Object Text.ASCIIEncoding))
+  try {
+    ollama create $agent.Name -f $modelfile
+    Assert-ExitCode "ollama create $($agent.Name)"
+  } finally {
+    Remove-Item -LiteralPath $modelfile -Force -ErrorAction SilentlyContinue
+  }
+  $expected += $agent.Name
+  $created += $agent
+}
+
+# 7. Report. Confirmed from the server rather than assumed from the pulls: a model
 # whose manifest resolved but whose layers did not land would otherwise be announced
 # as ready and fail on first use.
 $listed = @(ollama list | Select-Object -Skip 1 | ForEach-Object { ($_ -split '\s+')[0] } | Where-Object { $_ })
 Assert-ExitCode 'ollama list'
-$missing = @($Models | Where-Object { $listed -notcontains $_ })
+$missing = @($expected | Where-Object { $listed -notcontains $_ })
 if ($missing.Count) { throw "The server does not list these models after pulling: $($missing -join ', ')" }
 
 Write-Host ''
@@ -245,4 +340,14 @@ ollama list
 $vol = Get-Volume -DriveLetter $qualifier.TrimEnd(':')
 Write-Host ''
 Write-Host ("Models are in $ModelRoot ({0:N1} GB free on $qualifier)" -f ($vol.SizeRemaining / 1GB))
-Write-Host "Try it: ollama run $($Models[0])"
+Write-Host ''
+Write-Host "Try it:   ollama run $($Models[0])"
+Write-Host '          bin\llm-probe.ps1              which models can drive an agent'
+if ($created.Count) {
+  Write-Host '          bin\claude-local.ps1           Claude Code on the widest window'
+  Write-Host ''
+  Write-Host 'Derived for agentic harnesses:'
+  foreach ($agent in $created) {
+    Write-Host ("  {0,-18} {1} tokens" -f $agent.Name, $agent.Window)
+  }
+}

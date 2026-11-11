@@ -14,18 +14,6 @@ $ErrorActionPreference = 'Stop'
 
 $Port = 11434
 
-function Test-OllamaUp {
-  $client = New-Object Net.Sockets.TcpClient
-  try {
-    $client.Connect('127.0.0.1', $Port)
-    return $true
-  } catch {
-    return $false
-  } finally {
-    $client.Close()
-  }
-}
-
 # Read where the install recipe pinned the weights before Remove-UserEnv clears the
 # variable that says so. The fallback is that recipe's default.
 $letter = if ($env:DEVDRIVE_LETTER) { $env:DEVDRIVE_LETTER } else { 'D' }
@@ -52,7 +40,7 @@ $procs = @(Get-Process -Name 'ollama app', 'ollama' -ErrorAction SilentlyContinu
 if ($procs.Count) {
   $procs | Stop-Process -Force
   for ($i = 0; $i -lt 20; $i++) {
-    if (-not (Test-OllamaUp)) { break }
+    if (-not (Test-OllamaUp $Port)) { break }
     Start-Sleep -Milliseconds 250
   }
   Write-Host 'Stopped the ollama server'
@@ -65,6 +53,13 @@ if ($installed) {
 }
 
 foreach ($name in $vars) { Remove-UserEnv $name }
+
+# The logon task the install recipe registers so the server survives a reboot.
+$taskName = 'Serve ollama'
+if (Get-ScheduledTask -TaskPath '\dotfiles\' -TaskName $taskName -ErrorAction SilentlyContinue) {
+  Unregister-ScheduledTask -TaskPath '\dotfiles\' -TaskName $taskName -Confirm:$false
+  Write-Host "Removed the logon task \dotfiles\$taskName"
+}
 
 # The weights. Sized first, because "35 GB" is the number that makes this decision,
 # and a prompt that does not say so is asking the question without the facts.

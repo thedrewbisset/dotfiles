@@ -217,3 +217,32 @@ function Confirm-Action([string]$Question) {
   $answer = Read-Host "$Question [y/N]"
   return ($answer -match '^(y|yes)$')
 }
+
+# Where ollama is, and whether it is answering. Both live here because four callers
+# needed them -- the two bin wrappers, the ollama recipe and its teardown -- and four
+# copies of a socket probe is four places to fix when one of them is wrong.
+function Get-OllamaExe {
+  $cmd = Get-Command ollama -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  # PATH in this shell can predate the install; the per-user installer puts it here.
+  $fallback = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
+  if (Test-Path -LiteralPath $fallback) { return $fallback }
+  throw "Cannot find ollama.exe (checked PATH and $fallback). Run: bin\install.ps1 ollama"
+}
+
+# A bounded wait rather than Connect(), which is the whole reason this is a function.
+# Measured on Windows: a *closed* loopback port costs about 2,050 ms of SYN retries,
+# against 155 ms for a bounded wait that gives up -- so a plain Connect() turns every
+# "is it up?" into a two-second pause on exactly the path that is already failing.
+function Test-OllamaUp([int]$Port = 11434, [int]$TimeoutMs = 500) {
+  $client = New-Object Net.Sockets.TcpClient
+  try {
+    $connect = $client.ConnectAsync('127.0.0.1', $Port)
+    if (-not $connect.Wait($TimeoutMs)) { return $false }
+    return $client.Connected
+  } catch {
+    return $false
+  } finally {
+    $client.Close()
+  }
+}

@@ -64,3 +64,44 @@ if ($fnmDir -and (Test-Path -LiteralPath (Join-Path $fnmDir 'aliases\default')))
     } catch { }
   }
 }
+
+# The ollama server, but only in an SSH session (recipes/ollama).
+#
+# The recipe registers a logon task so the server survives a reboot, and that trigger
+# is the reason this block exists. Measured here: an OpenSSH logon arrives as logon
+# type 3, Network -- the Security log's 4624 records say so -- and a Task Scheduler
+# logon trigger fires on *interactive* logons: console, RDP, unlock. Not network ones.
+# So a machine that reboots and is then reached only over SSH has the task sitting
+# Ready, the port closed, and every harness reporting that the model is unavailable.
+# Nothing about that failure points at a scheduled task, which is the worst part.
+#
+# Hence the SSH_CONNECTION guard: a console logon has already been handled by the
+# trigger, so there is nothing to pay for there. In an SSH shell the probe costs about
+# 24 ms on the first socket in a fresh process, 0.5 ms warm, and about 155 ms when the
+# port is closed -- and a 155 ms wait is the cheapest thing that happens on that path.
+# A bare Connect() is the wrong call here: a closed loopback port costs 2 s of SYN
+# retries, so the wait has to be bounded explicitly.
+if ($env:SSH_CONNECTION -and $env:OLLAMA_MODELS) {
+  $sock = New-Object Net.Sockets.TcpClient
+  $up = $false
+  try {
+    $connect = $sock.ConnectAsync('127.0.0.1', 11434)
+    if ($connect.Wait(200)) { $up = $sock.Connected }
+  } catch {
+  } finally {
+    $sock.Close()
+  }
+  if (-not $up) {
+    # Start the task, not ollama.exe: one definition of how the server is launched,
+    # and a server that does not die when this shell exits.
+    try {
+      $task = Get-ScheduledTask -TaskPath '\dotfiles\' -TaskName 'Serve ollama' -ErrorAction Stop
+      # The scheduler goes on calling the task Running after the process it started is
+      # gone, and refuses to start a second instance of what it thinks is still there.
+      # Stopping first is safe precisely because we only get here with the port closed,
+      # so there is no healthy server on the other end of this.
+      if ($task.State -eq 'Running') { Stop-ScheduledTask -InputObject $task }
+      Start-ScheduledTask -InputObject $task
+    } catch { }
+  }
+}
