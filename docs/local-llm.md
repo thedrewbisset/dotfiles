@@ -151,6 +151,33 @@ fill-in-the-middle, and agentic tool-call formatting is a different post-trainin
 objective. **Do not reach for the model with "coder" in the name to drive an agent.**
 Its place is editor completion, where there are no tools to call.
 
+Which is where the second half of this finding comes in, and why the `ollama` recipe
+no longer installs a completion model at all. Measured on the same `qwen2.5-coder:7b`,
+through `/api/generate` with `prompt` and `suffix` -- the fill-in-middle shape, which
+is a different request from everything else in this document, with no chat, no tools
+and no system prompt:
+
+| Asked for | Result |
+|---|---|
+| A `HashMap` word-count body, from a doc comment and signature | correct and idiomatic: `*counts.entry(word.to_string()).or_insert(0) += 1` |
+| A lifetime-bounded iterator, `impl Iterator<Item = &'a str> + 'a` | **does not compile** -- yields `&String` where the signature says `&'a str` |
+
+That is the shape of a 7B on a strongly typed language: plausible structure, subtly
+wrong types. It even got the genuinely subtle part right, since the returned closure
+needs `move` or it cannot borrow a local -- and then missed the `as_str()`. On a
+language where the type system is most of the work, a completion that has to be
+checked against the compiler every time is worth less than the deterministic
+completion `rust-analyzer` already provides: method names, trait members and imports,
+instantly and always correctly.
+
+Two mechanical notes if a completion model is ever wanted here. Prefer the `-base`
+tag: the instruct tag overran every FIM request, emitting the closing brace and then
+inventing a `main()`, a markdown fence and a paragraph of prose -- 259 tokens to
+produce five useful lines, which a plugin has to truncate. And watch the latency
+budget: 365 ms of prefill plus 18 ms per token means a 20-token completion lands
+around 700 ms on a near-empty file, where inline ghost-text wants 100-300 ms, and
+prefill grows with however much of the file the plugin sends.
+
 Probe any model before trusting it, with `bin\llm-probe.ps1`:
 
 ```powershell

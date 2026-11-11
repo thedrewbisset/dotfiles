@@ -184,8 +184,9 @@ ollama list
 
 If the weights come back at all, `OLLAMA_MODELS` reached the server -- one that missed
 it looks under `%LOCALAPPDATA%\Ollama\models`, finds an empty directory, and reports
-no models while looking perfectly healthy. Expect six. The second proof is the
-`CONTEXT` column in step 4.
+no models while looking perfectly healthy. Expect the recipe's three, plus the two
+derived agent models, plus anything pulled by hand. The second proof is the `CONTEXT`
+column in step 4.
 
 ### 3. The three API surfaces
 
@@ -304,6 +305,12 @@ would make, forever, and never makes one.
 Read the `Returned` column, not `Declares`. Those two disagreeing is the entire reason
 the script exists.
 
+That table is a record of a run made when `qwen2.5-coder:7b` was still in the recipe's
+default set. It is no longer pulled -- this finding is half the reason, and its
+fill-in-middle completion measuring no better on Rust is the other half, both in
+[local-llm.md](local-llm.md) -- so a current run on a machine installed from the
+recipe shows five rows rather than six.
+
 ### 6-8. The harnesses
 
 `llm-verify.ps1 -Runs` does all three. Individually:
@@ -324,7 +331,7 @@ opencode models | Select-String ollama
 opencode run -m ollama/qwen3-agent:4b --archived "Reply with exactly: READY"
 ```
 
-All six models show up, because OpenCode discovers whatever the server has rather
+Every model on the server shows up, because OpenCode discovers what is there rather
 than reading a list the recipe wrote -- so choosing one is on you. 26 to 35 seconds.
 The `NotSpecified ... RemoteException` noise above the answer is not an error:
 OpenCode writes an ANSI reset to stderr and PowerShell 5.1 turns native stderr output

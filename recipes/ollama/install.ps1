@@ -6,23 +6,35 @@
 #
 # Defaults, each overridable with an environment variable:
 #   OLLAMA_MODELS          <DEVDRIVE_LETTER>:\models\ollama
-#   OLLAMA_RECIPE_MODELS   qwen3:8b,qwen2.5-coder:7b,qwen3:4b,qwen2.5vl:7b  (comma separated)
+#   OLLAMA_RECIPE_MODELS   qwen3:8b,qwen3:4b,qwen2.5vl:7b  (comma separated)
 #   OLLAMA_KEEP_ALIVE      30m
 #   OLLAMA_CONTEXT_LENGTH  16384
 #   OLLAMA_RECIPE_AGENT    qwen3-agent:4b=qwen3:4b@32768   (name=base@window; '' to skip)
 #
-# Why these four. The default set is sized for an 8 GB-class CUDA card, where
+# Why these three. The default set is sized for an 8 GB-class CUDA card, where
 # roughly 7.2 GiB of the 8 is usable for weights plus KV cache once the CUDA context
-# and compute buffers are accounted for. Pull sizes, 17.1 GB in total:
+# and compute buffers are accounted for. Pull sizes, 12.8 GB in total:
 #
 #   qwen3:8b           4.87 GB  the interactive default
-#   qwen2.5-coder:7b   4.36 GB  has the fill-in-middle tokens editor completion
-#                               needs; no Qwen3 coder is small enough (30B-A3B is)
-#   qwen3:4b           2.33 GB  fast enough for autocomplete and classification
+#   qwen3:4b           2.33 GB  the base for the derived agent models below
 #   qwen2.5vl:7b       5.56 GB  image input -- every other model here is text-only
 #
+# No completion model, which is a reversal: the set used to carry qwen2.5-coder:7b
+# (4.36 GB) for its fill-in-middle tokens, and measuring it withdrew the argument.
+# It declares a tools capability and does not emit tool calls -- asked to call one it
+# answers with correct, well-formed JSON as prose, so nothing downstream can execute
+# it (bin\llm-probe.ps1 shows this; docs/local-llm.md explains it). That rules it out
+# for agent work. What remained was editor completion, and on the languages this
+# machine is pointed at that does not pay either: a FIM request for a lifetime-bounded
+# Rust iterator came back structurally right and uncompilable, returning &String where
+# the signature says &'a str. rust-analyzer already owns the deterministic half of
+# completion -- method names, trait members, imports -- instantly and always
+# correctly, which is the half worth having. Reinstate it with OLLAMA_RECIPE_MODELS if
+# a completion plugin ever earns its place; prefer the '-base' tag, since the instruct
+# tag installed here overran every FIM request into a main() and a prose explanation.
+#
 # Each stays GPU-resident with room for a useful context window, and since
-# OLLAMA_MAX_LOADED_MODELS is 1 a fourth model costs disk rather than VRAM: they
+# OLLAMA_MAX_LOADED_MODELS is 1 an extra model costs disk rather than VRAM: they
 # swap, they do not compete. gemma3:12b (7.60 GB) and qwen3:14b (8.64 GB) are left
 # out because they exceed the budget, and a partially offloaded model loses more
 # speed than the extra parameters give back. Set OLLAMA_RECIPE_MODELS for a card
@@ -62,12 +74,14 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $Root 'bin\lib\tools.ps1')
 
 $Port = 11434
-# Set from measured peak, not from apparent size. Pulling the 17.1 GB default set
-# consumed 29.5 GB of an ReFS Dev Drive: the weights account for 17.1 GB of live
-# files and the rest is deleted download temporaries that ReFS reclaims lazily rather
-# than at once. A floor of 30 covers that peak and still lets a re-run pass, since a
-# re-run with every model already present downloads nothing.
-$MinFreeGB = 30
+# Set from measured peak, not from apparent size. Pulling what was then a 17.1 GB
+# default set consumed 29.5 GB of an ReFS Dev Drive: the weights accounted for 17.1 GB
+# of live files and the rest was deleted download temporaries that ReFS reclaims
+# lazily rather than at once. That is a 1.7x peak, and the set is now 12.8 GB, which
+# extrapolates to about 22 GB -- so 24, which keeps the margin without demanding
+# nearly twice what the pull needs. The extrapolation is the part that is not
+# measured; if a pull ever fails for space, re-measure rather than nudging this.
+$MinFreeGB = 24
 
 # The letter follows the devdrive recipe's DEVDRIVE_LETTER so the two cannot disagree.
 $letter = if ($env:DEVDRIVE_LETTER) { $env:DEVDRIVE_LETTER } else { 'D' }
@@ -79,7 +93,7 @@ $KeepAlive = if ($env:OLLAMA_KEEP_ALIVE) { $env:OLLAMA_KEEP_ALIVE } else { '30m'
 $Models = if ($env:OLLAMA_RECIPE_MODELS) {
   @($env:OLLAMA_RECIPE_MODELS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 } else {
-  @('qwen3:8b', 'qwen2.5-coder:7b', 'qwen3:4b', 'qwen2.5vl:7b')
+  @('qwen3:8b', 'qwen3:4b', 'qwen2.5vl:7b')
 }
 
 # The derived harness models, as a comma-separated list of 'name=base@window'. Set
@@ -180,7 +194,7 @@ Write-Host ("$qualifier has {0:N1} GB free" -f $freeGB)
 if ($freeGB -lt $MinFreeGB) {
   # A Dev Drive is a fixed-size virtual disk, so filling it is a real risk rather
   # than a theoretical one, and a part-written pull is the worst place to find out.
-  Write-Warning ("Less than $MinFreeGB GB free on $qualifier. The default models need about 17.1 GB. " +
+  Write-Warning ("Less than $MinFreeGB GB free on $qualifier. The default models need about 12.8 GB. " +
     "Grow the Dev Drive (diskpart 'expand vdisk', then extend the partition), or set OLLAMA_MODELS elsewhere.")
   if (-not (Confirm-Action 'Continue anyway?')) {
     Write-Host 'Skipped.'

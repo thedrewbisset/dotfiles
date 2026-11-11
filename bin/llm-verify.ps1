@@ -311,9 +311,12 @@ function Test-Harnesses {
     Write-Fact 'opencode models' ("{0} discovered" -f $rows.Count)
     if (-not $rows.Count) { Add-Problem 'opencode discovered no ollama models -- is the server up?' }
     # OpenCode enumerates whatever the server has, including models that cannot drive
-    # an agent, and the non-compliant one sorts first alphabetically.
-    if ($rows -contains 'ollama/qwen2.5-coder:7b') {
-      Write-Note 'ollama/qwen2.5-coder:7b is listed and sorts first -- it declares tools and does not emit them'
+    # an agent. Which one a fresh session lands on is not worth leaving to chance: the
+    # list is alphabetical, and the models that sort first here are the vision model
+    # and, when it is installed, the completion model -- neither of which emits a tool
+    # call. So name the one at the top rather than a model that may not be present.
+    if ($rows.Count) {
+      Write-Note ("{0} sorts first -- check it with bin\llm-probe.ps1 before pointing a session at it" -f $rows[0])
     }
   }
 }

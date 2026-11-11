@@ -73,10 +73,12 @@ Write-Host ''
 Write-Host 'Local models OpenCode discovered:'
 foreach ($m in $models) { Write-Host "  $m" }
 Write-Host ''
-# Deliberately not naming one of them here. The list is alphabetical, and the model
-# that sorts first is a completion model that declares a tools capability it does not
-# honour -- it would print a JSON object instead of calling the tool. Which of these
-# can drive an agent is a question with a measured answer, so point at the measurement.
+# Deliberately not naming one of them here. The list is alphabetical, and on an
+# 8 GB-class card the models that sort first are the ones that cannot drive an agent
+# at all: a vision model with no tools section, and, if it has been pulled, a
+# completion model that declares a tools capability it does not honour and would print
+# a JSON object instead of calling the tool. Which of these can drive an agent is a
+# question with a measured answer, so point at the measurement.
 Write-Host 'Which of them can drive an agent:  bin\llm-probe.ps1'
 Write-Host 'Then:                              opencode run --model ollama/<model> "..."'
 Write-Host '                                   opencode          (interactive)'
