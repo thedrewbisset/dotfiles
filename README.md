@@ -219,13 +219,34 @@ They target Windows PowerShell 5.1, which ships with Windows, and install throug
 | `dotfiles` | yes | Links the three files Windows reads (`.gitconfig`, `.git-excludes-file`, `.ssh/config`) plus `source/windows/profile.ps1`, and sets `DEV_ROOT`. Needs symlink privilege: run it over SSH or elevated |
 | `gh` | yes | GitHub CLI, config pinned to `~\.config\gh`; offers to log in |
 | `uv` | yes | uv and a uv-managed Python 3.14, which provides the `python3` the git hooks call |
+| `fnm` | yes | [fnm](https://github.com/Schniz/fnm) and Node 24, with the versions and npm's cache on the Dev Drive ([below](#node)) |
 | `hooks` | yes | The privacy gate hooks. Fails if `python3` does not actually run |
 | `claude` | yes | Claude Code CLI via Anthropic's native installer |
 | `devdrive` | no | A [Dev Drive](https://learn.microsoft.com/windows/dev-drive/) at `D:` (expandable virtual disk, 64 GB cap) with `src`, `caches`, `models`, re-attached at boot. Run elevated, normally first |
 | `openssh-server` | no | LAN-only, key-only SSH server ([below](#ssh-server)). Run elevated |
-| `ollama` | no | Ollama, weights pinned to `D:\models\ollama`, plus four models an 8 GB-class GPU keeps resident ([below](#llm-cluster)). Downloads ~17.1 GB, so it is never part of `all` |
+| `ollama` | no | Ollama, weights pinned to `D:\models\ollama`, plus four models an 8 GB-class GPU keeps resident and one derived for agent work ([below](#llm-cluster)). Downloads ~17.1 GB, so it is never part of `all` |
+| `opencode` | no | The OpenCode CLI, a second agentic harness for the local models ([below](#driving-a-local-model)) |
+| `pi` | no | [Pi](https://pi.dev) and its ollama provider — the leanest prompt of the three harnesses, which is what matters on a local model ([below](#driving-a-local-model)). Needs `fnm` |
 
-Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `dotfiles` removes only links that point inside this repo, restoring any `.pre-dotfiles` copy it made; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration; `ollama`'s uninstalls the runtime and clears its variables, then asks *separately* about deleting the weights, since those are the one part a re-install does not bring back in seconds. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
+Every recipe has a teardown. `git`, `gh` and `uv` uninstall the package they installed; `claude` removes the CLI binary and leaves `~\.claude` alone; `hooks` puts this clone's `core.hooksPath` back; `dotfiles` removes only links that point inside this repo, restoring any `.pre-dotfiles` copy it made; `devdrive`'s detaches the drive and deletes it only on a typed confirmation; `openssh-server`'s undoes its configuration; `ollama`'s uninstalls the runtime and clears its variables, then asks *separately* about deleting the weights, since those are the one part a re-install does not bring back in seconds, and `fnm`'s, `opencode`'s and `pi`'s ask the same way about the Node versions, the sessions and the cache. `pi`'s also removes only its own `ollama` key from a `models.json` that may hold other providers. `bin\teardown.ps1 all` does nothing yet, on purpose: each one is run deliberately.
+
+### Node
+
+The macOS side uses `nvm`, which cannot be ported: nvm-sh is not a program but a few thousand lines of POSIX shell sourced into bash or zsh, so the thing itself is the shell. Windows uses **fnm** instead — a single Rust binary that runs on both platforms, reads the same `.nvmrc` and `.node-version` files, and is in winget. macOS could move onto it later for free.
+
+Not `nvm-windows`, despite the name: it is an unrelated program with its own CLI, and it switches versions by replacing a *symlink*, which needs `SeCreateSymbolicLinkPrivilege` — Administrators only. fnm uses directory **junctions**, which need no privilege at all, so it installs and switches from an ordinary shell. (Volta is the other serious option; it shims rather than hooking the shell, which is tidier, but it pins versions in `package.json` instead of reading `.nvmrc`, so it would not share version files with macOS.)
+
+Everything that gets written a lot goes on the Dev Drive, which is the workload Dev Drives exist for — `node_modules` is hundreds of thousands of small files on ReFS with Defender in performance mode:
+
+| | |
+|---|---|
+| `FNM_DIR` | `D:\caches\fnm` — the Node versions and the `default` alias |
+| `npm_config_cache` | `D:\caches\npm` — npm's default is `%LOCALAPPDATA%\npm-cache`, off the drive and inside the AppData a packaged app redirects |
+| `COREPACK_HOME` | `D:\caches\corepack`, for if yarn or pnpm ever arrive |
+
+`npm config get prefix` then resolves *through* the alias junction, so global installs land on the Dev Drive as well with no prefix set. Setting one would be a mistake — a fixed prefix is shared across every Node version, which is the conflict the macOS `nvm` recipe deletes a leftover prefix to avoid. Without the Dev Drive attached the recipe falls back to home-relative XDG paths and says so, the way `uv` pins uv, so it is safe in `all`.
+
+The recipe puts fnm's `aliases\default` junction on the user PATH, so `node` works in any new shell — cmd, Git Bash, anything that does not read the PowerShell profile. Per-directory switching is separate and comes from the fnm block in `source/windows/profile.ps1`: it aliases `cd` to run `fnm use --silent-if-unchanged` when the directory holds `.nvmrc`, `.node-version` or `package.json`. That block is guarded on `FNM_DIR` *and* a default alias existing on disk, both because evaluating `fnm env` is a ~40 ms process spawn on every shell start and because without a default alias it would otherwise leave a shell with a `cd` hook and no node — a worse state to debug than no integration at all.
 
 Three files in `source/` are linked here, because they are the ones Windows tools read. The rest belong to tools this side does not have — zsh, oh-my-zsh, tmux, ruby, psql, bats, paperclip, vim — and `.claude` is skipped for the same reason as on macOS: it is Claude Code's live home, not config. `source/windows/` holds the Windows-only files that have no `$HOME` dotfile path of their own; `profile.ps1` is linked to `$PROFILE.CurrentUserAllHosts`, read from `$PROFILE` rather than built by hand because Documents is often redirected into OneDrive.
 
@@ -272,7 +293,7 @@ Host <alias>
 
 **[`docs/llm-cluster.md`](docs/llm-cluster.md)** is the planning document for running local models across the machines on a private LAN: why pooling VRAM over Ethernet buys capacity rather than speed, which of the available tools is worth the effort, and what the hardware on hand actually supports. In short: wire the nodes up before installing anything, and prefer one runtime per machine behind a single endpoint over splitting one model across six.
 
-The first runtime is in place. `bin\install.ps1 ollama` installs Ollama on a Windows node and pulls a default set of four models that an 8 GB-class GPU can keep fully resident — `qwen3:8b` for interactive work, `qwen2.5-coder:7b` for editor completion, `qwen3:4b` for anything that should feel instant, and `qwen2.5vl:7b` for image input, which the other three cannot do — about 17.1 GB of weights into `D:\models\ollama`. Four models fit because `OLLAMA_MAX_LOADED_MODELS` is 1: they swap rather than compete, so each one past the first costs disk, not VRAM. Picking a vision model goes by encoder resolution rather than parameter count, and its VRAM cost is visual tokens in the KV cache — so what an 8 GB card limits is image size per prompt, not whether the model loads. Override the set with `OLLAMA_RECIPE_MODELS`, or the location with `OLLAMA_MODELS`. The recipe also pins the four server settings an 8 GB budget calls for (a `q8_0` KV cache being the one that matters most) and restarts the server onto them, since Ollama reads those in the server rather than the CLI. Still missing, and the reason this is only half a cluster: a gateway putting one OpenAI-compatible endpoint in front of the per-machine runtimes.
+The first runtime is in place. `bin\install.ps1 ollama` installs Ollama on a Windows node and pulls a default set of four models that an 8 GB-class GPU can keep fully resident — `qwen3:8b` for interactive work, `qwen2.5-coder:7b` for editor completion, `qwen3:4b` for anything that should feel instant, and `qwen2.5vl:7b` for image input, which the other three cannot do — about 17.1 GB of weights into `D:\models\ollama`. Four models fit because `OLLAMA_MAX_LOADED_MODELS` is 1: they swap rather than compete, so each one past the first costs disk, not VRAM. Picking a vision model goes by encoder resolution rather than parameter count, and its VRAM cost is visual tokens in the KV cache — so what an 8 GB card limits is image size per prompt, not whether the model loads. Override the set with `OLLAMA_RECIPE_MODELS`, or the location with `OLLAMA_MODELS`. The recipe also pins the four server settings an 8 GB budget calls for (a `q8_0` KV cache being the one that matters most) and restarts the server onto them, since Ollama reads those in the server rather than the CLI. It then derives two more models from the same 4B weights with context windows baked in — `qwen3-agent:4b` at 32768 and `qwen3-agent64:4b` at 65536 — because the right window is per *harness*, not per machine ([below](#driving-a-local-model)). Both cost a manifest and no measurable disk, since a derived model shares its parent's blobs. Finally it registers a logon task so the server comes back after a restart: verified, a `winget` install leaves no `Run` entry, Startup shortcut, service or task of its own, so without it the server lives only as long as the shell that started it. Still missing, and the reason this is only half a cluster: a gateway putting one endpoint in front of the per-machine runtimes.
 
 The doc is design and method only — [Sizing a node](docs/llm-cluster.md#sizing-a-node) gives the formulas for working out what a given card can hold, with no machine's numbers in it. Per-machine profiles and sizing notes live beside the collected inventory under `$XDG_DATA_HOME/dotfiles/inventory/`, outside this repo, for the same reason the fleet host list does: a hardware profile tied to a named machine is correlatable inventory a public repo should not carry.
 
@@ -295,6 +316,59 @@ scripts/fleet-inventory.sh studio box:windows
 ```
 
 Hosts are ssh aliases rather than addresses, and both the host list and the collected results live outside the repo: a collected set names every machine on the LAN and its address, which is the kind of inventory this repo deliberately withholds (see [Privacy gate](#privacy-gate)). The collector is piped to each node over SSH on stdin, so nothing is copied and no node can run a stale version.
+
+### Driving a local model
+
+**[`docs/local-llm.md`](docs/local-llm.md)** is the other half: how to talk to the server once it is running, and what it takes to put an agentic coding harness in front of it. One Ollama server answers three different request shapes at the same port — its own API, an OpenAI-compatible route, and, since v0.14.0, the Anthropic Messages API, which is why a Claude Code harness needs no translation proxy.
+
+Two things measured there decide everything else, and neither is visible in a model card.
+
+**A declared `tools` capability does not mean a model emits tool calls.** The flag only says the chat template has a tools section. The template tells the model to wrap each call in `<tool_call>` tags, and Ollama's parser turns those into a structured `tool_use` block — so a model that ignores the convention and prints bare JSON returns a response no harness can act on. In practice the agent prints an object at you and the file it was asked to edit is untouched, which reads like a confused model rather than a format mismatch. Of the installed set, both Qwen3 models pass and `qwen2.5-coder:7b` fails despite declaring the capability: a code-completion model is tuned for fill-in-the-middle, and agentic formatting is a different objective. **Do not reach for the model with "coder" in the name to drive an agent** — it belongs in editor completion, where there are no tools to call. `bin\llm-probe.ps1` checks any model in about a second.
+
+**An agentic harness spends about 14K tokens before the conversation starts.** It sends its system prompt and the JSON schema of every tool it owns on every turn; measured, a Claude Code run asking *"what is 2+2"* was 13,821 input tokens. That inverts the sizing question: a 16K window leaves ~2.5K for the conversation, the files read and every tool result, so the model that wins is the one holding the biggest window on the GPU rather than the one with the most parameters. On an 8 GB card a 4B model at 32768 stays 100% GPU at full speed where an 8B at 32768 spills — hence the derived `qwen3-agent:4b`, since `OLLAMA_CONTEXT_LENGTH` is server-wide and raising it would spill the 8B that chat uses.
+
+**Which means the harness's prompt is a first-order cost, not a detail.** Measured on the same prompt, same model, same server, reading the usage each harness reports for itself:
+
+| | Claude Code | OpenCode | Pi |
+|---|---|---|---|
+| *"What is 2+2?"* | 13,821 input tokens | 7,215 | **699** |
+| After a full read-edit-confirm turn | 15,061 | 8,305 | 1,753 |
+| Of a 32K window, spent before you speak | 42% | 22% | **2%** |
+
+Almost 20× end to end, because Pi's core is four tools — read, bash, edit, write — where the other two ship a full surface every turn. That is not a verdict on the harnesses: Claude Code's prompt buys subagents, skills, MCP and much more tooling, and against a hosted 200K window the overhead is a rounding error. It is a verdict about this hardware. **On a local model, start with Pi.**
+
+Nor is 32768 a hard wall — it is the largest window that costs *nothing*. Weights and KV cache share VRAM, so 8 GB decides how much window stays GPU-resident; past that llama.cpp offloads the overflow to system RAM rather than failing, so **RAM buys window, paid for in bandwidth**: 65536 lands at 26%/74% CPU/GPU and 46.9 tok/s, 131072 at 57%/43% and 21.5 tok/s, where system RAM runs out.
+
+That turns the overhead table into something concrete. Same three files, one cross-file bug, each harness reading all three to find it:
+
+| Harness | Window | Result | Time |
+|---|---|---|---|
+| Pi | 32768 | fixed | **25–54 s** |
+| OpenCode | 32768 | fixed | 101–115 s |
+| Claude Code | 65536 | fixed, 5 turns | 319 s |
+| Claude Code | 32768 | **failed** — *"autocompact is thrashing"* | 379 s |
+
+Monotonic in prompt overhead, which is the point. [`docs/local-llm.md`](docs/local-llm.md) has the full method, separates the cases where more RAM helps from the ones where it buys nothing, and says what clustering does and does not address — short version: it raises the capacity ceiling, it does not reduce harness overhead or make a given model faster.
+
+| | What to run | Window it uses |
+|---|---|---|
+| Pi on a local model (leanest prompt) | `bin\install.ps1 pi`, then `pi --model ollama/qwen3-agent:4b` | 32768, 100% GPU |
+| OpenCode on a local model | `bin\install.ps1 opencode`, then `opencode` | 32768, 100% GPU |
+| Claude Code on a local model | `bin\claude-local.ps1` | 65536, spills — see above |
+| Check a model can drive an agent | `bin\llm-probe.ps1` | — |
+| Check the whole stack, end to end | `bin\llm-verify.ps1` | — |
+
+`bin\claude-local.ps1` sets four variables for one child process and nothing else — persisting `ANTHROPIC_BASE_URL` as a user variable would silently redirect *every* Claude Code session on the machine, including the ones meant for the real API. The one that is easy to miss is `CLAUDE_CODE_MAX_CONTEXT_TOKENS`: Claude Code cannot discover the window of a model ID it does not recognise, assumes 200K, and so never compacts. (`CLAUDE_CODE_AUTO_COMPACT_WINDOW` is not the knob — it clamps to a 100K floor, far above anything local hardware offers.)
+
+OpenCode is the contrast, and the reason that recipe exists: it discovers a running server on the default port and enumerates its models, derived ones included, with nothing written to a config file. All three drive the same server — Claude Code over the Anthropic surface, the other two over the OpenAI one — which makes it cheap to tell a harness problem from a model problem.
+
+**`bin\llm-verify.ps1`** checks all of that on a machine rather than taking it on faith, in about 45 seconds and changing nothing: the server and what started it, the pinned settings as the *server* sees them, all three API surfaces, the window each model loads with, both harnesses' model lists, and the Node toolchain. It prints the value each check read rather than a verdict — `PASS` from a script is only another claim to take on faith, and a number is what makes a wrong one obvious. Lines beginning `!!` are checks that read something they can argue is wrong, and the exit code is the count of those, so it works from another script. Slow or destructive checks are opt-in: `-Tools` (tool-call compliance across every installed model), `-Runs` (one real turn through each harness), `-Restart` (kill the server, bring it back through the logon task), `-All`, or `-Only <names>` for a subset.
+
+**[`docs/verify-local-llm.md`](docs/verify-local-llm.md)** is the same ground by hand, and the explanation: what each check is doing, what its output means, and the `-Only` flag that runs just that one. It is written for the shell an SSH logon gets, Windows PowerShell 5.1. The last section maps symptom to cause for the failures that look like something else — a 404 that reads like a dead server, an empty `ollama list` from a healthy one, raw `<think>` tags in a reply, a task result code that reports success as a failure.
+
+One finding from writing it is worth stating here, because it is the kind of thing that only surfaces when something is verified from where it will actually be used: the `ollama` recipe's logon task uses an at-logon trigger, and **an OpenSSH logon arrives as logon type 3, Network, which a logon trigger does not fire for** — it fires for console, RDP and unlock. A machine that reboots and is then reached only over SSH therefore had the task sitting `Ready` and nothing listening. The profile now probes the port when `SSH_CONNECTION` is set and starts the task if it finds it closed; the guard keeps that cost off every other shell, since a console logon was already covered. For a genuinely headless box the right fix is a task that runs whether or not the user is logged on, which needs elevation and is left as a deliberate choice — the runbook gives the command.
+
+Pi's configuration lives in `~\.pi\agent\models.json`, already home-relative rather than under AppData, so there is nothing to pin. Its `contextWindow` field is the same problem `CLAUDE_CODE_MAX_CONTEXT_TOKENS` solves (Pi defaults an unknown model to 128000) except that it sits in the same file as the provider, so there is no variable to forget. The recipe merges into that file rather than overwriting it — a hosted provider's proxy or a model override can live there too, and it only owns the `ollama` key; the teardown removes that key alone. `qwen2.5-coder:7b` is deliberately left unregistered, since offering a model that returns tool calls as prose is worse than not offering it.
 
 ---
 
