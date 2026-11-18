@@ -13,6 +13,10 @@ source/.vim/swap
 # Git worktrees
 **/.worktrees/
 
+# Machine-local scratch output (host probes, reports). Never committed: it
+# carries serials, MACs and hostnames.
+/.local/
+
 # --- Paperclip config (source/.paperclip) ---
 # ~/.paperclip is Paperclip's live home (a real directory) holding embedded
 # Postgres data, uploads, logs, secrets and agent workspaces under instances/.
