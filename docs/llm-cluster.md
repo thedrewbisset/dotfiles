@@ -43,6 +43,46 @@ More nodes make this worse, not better: pipeline depth is a liability, because e
 extra hop is latency added to every token. If a model has to be split, split it
 across the two or three strongest machines and leave the rest out of it.
 
+### The one exception: Thunderbolt 5 on Apple Silicon
+
+Everything above assumes Ethernet. One interconnect now in consumer hands escapes it.
+Apple's WWDC26 session 233 covers multi-Mac inference with **MLX over RDMA on
+Thunderbolt 5**, using their JACCL collective library; `mlx.launch` starts a
+distributed job over SSH from a JSON hostfile. Apple reports **up to 3x with four
+nodes** -- throughput scaling rather than merely capacity, and so the one published
+case of a LAN-class fabric making tensor parallelism pay. `exo` runs topology-aware
+tensor parallelism on the same stack.
+
+The conditions are narrow enough to settle eligibility on their own:
+
+| Requirement | Consequence |
+|---|---|
+| Thunderbolt 5 | M4 Pro/Max or M3 Ultra class. TB3 and TB4 nodes do not qualify |
+| macOS 26.2+, MLX 0.30.1+ | Both ends, both versions |
+| Apple Silicon only | MLX has no CUDA backend, so **no Windows or Linux GPU node can join** |
+
+That last row is the one that matters when planning: a mixed fleet cannot use the only
+fabric that would make capacity pooling fast. The fast path is Apple-to-Apple; the
+cross-platform path is llama.cpp RPC, which is explicitly not speed-optimised. Treat
+the published multi-node figures as enthusiast measurements until something independent
+appears.
+
+### Architecture class decides eligibility before anything else
+
+Whether a node has a GPU is the wrong screen. The useful one is **unified memory versus
+discrete**, and it is read off memory bandwidth:
+
+- **Apple Silicon** is a GPU with unified memory: fitted RAM is usable model capacity,
+  from roughly 100-120 GB/s on a base chip to around 800 GB/s on an Ultra.
+- **An Intel Mac is a dead end here.** No usable GPU for this work, and DDR4 bandwidth
+  in the 25-50 GB/s range against ~272 GB/s on a mid-range discrete card. Inference is
+  bandwidth-bound, so that gap *is* the result.
+
+A heterogeneous pipeline runs at the pace of its slowest node, so adding a weak machine
+to one makes the pipeline worse rather than larger. Exclude any node whose bandwidth is
+an order of magnitude below the others -- it belongs in throughput pooling instead,
+where slow work still finishes in parallel.
+
 ## The interconnect comes first
 
 **This section applies to clustering only.** For a model running on one machine the
@@ -66,7 +106,7 @@ a working wireless link is both easy to overlook and expensive to keep.
 | Option | Verdict |
 |---|---|
 | **llama.cpp RPC backend** | Start here if capacity pooling is genuinely needed. The most mature option and the only comfortable one for mixed CUDA + Metal + CPU nodes. |
-| **exo** | Verify before investing -- the repository found for it is archived. |
+| **exo** | Apple-only in practice now: topology-aware tensor parallelism on MLX over TB5 RDMA, needing macOS 26.2+. Verify before investing -- the repository found for it is archived. |
 | **prima.cpp** | Research-grade, but aimed exactly at heterogeneous low-resource home clusters. Closest match to this problem. |
 | **vLLM + Ray** | Excellent and production-grade, but not for a cluster like this: it wants homogeneous GPUs, a fast interconnect, and more than 8 GB per worker. |
 | **Petals** | A different problem -- swarm serving of very large models. |
@@ -92,7 +132,9 @@ The caveat is practical rather than technical: the repository located for it
 (`exo-explore/ex-exo`) is **archived**, and claims that it matured during 2026 into
 a packaged product with a macOS app and a cluster dashboard trace back to a
 community wiki that could not be confirmed against any release. Check the official
-repository's current state first.
+repository's current state first. What *is* documented is the direction: the current
+work is topology-aware tensor parallelism over the Thunderbolt 5 RDMA path above, which
+also makes it Apple-only and therefore no use to a mixed fleet.
 
 ## What to build instead
 
@@ -112,6 +154,122 @@ investment:
   needs none of the tooling above.
 - **Keep speculative decoding on one box.** Draft and verifier models must sit
   together; a network round trip per token erases the benefit entirely.
+
+## Routing: one endpoint, many machines
+
+This is the design that replaces clustering, and it is worth separating cleanly from
+it, because the two have opposite relationships with the network.
+
+**Clustering touches the network once per token. Routing touches it once per request.**
+A LAN hop is around a millisecond; on a 30-token-per-second stream that is 3% of one
+token's budget, paid once for the whole response. Everything that makes pipeline
+parallelism collapse is simply absent here. This is why routing works over 1 GbE, or
+even Wi-Fi, while splitting a model does not.
+
+### The gain is residency, not throughput
+
+The gain is easy to state wrongly. Routing does not make any model faster; what it buys
+is **several warm models at once**.
+
+On a single 8 GB node, `OLLAMA_MAX_LOADED_MODELS` has to be 1, so every change of model
+is an eviction and a reload -- several seconds of dead time, paid on the first request
+after any switch. Spread the same set across N machines and each one holds a different
+*resident* model, so the switch cost disappears entirely: a vision request, a fast
+4B answer and a long-context job can be in flight simultaneously, each on hardware
+that already has its weights loaded.
+
+So the honest framing of a mixed fleet is not "more compute". It is **more
+simultaneously-resident specialists, reachable at one address** -- which is usually
+what people wanted from clustering in the first place.
+
+### Shape
+
+Three layers, and only the middle one is new work:
+
+1. **One runtime per node, bound to loopback.** Each machine serves whatever it holds
+   best, on `127.0.0.1` only.
+2. **A gateway on the always-on node.** One OpenAI-compatible URL in front of all of
+   them, with the per-node addresses as its back ends.
+3. **Capability aliases, not machine names.** Harnesses ask for `fast` or `vision`,
+   never for a host. This is the part that makes the fleet rearrangeable without
+   touching a single harness config.
+
+| Component | Choice | Why |
+|---|---|---|
+| Gateway | **LiteLLM proxy** | Routes across *hosts*, which is the requirement here. Model aliases, retries, fallbacks, health checks and per-key auth, over an OpenAI-compatible surface |
+| Per-node on-demand loading | ollama, or llama-swap for a llama.cpp/MLX node | ollama already loads on demand; llama-swap adds the same behaviour to runtimes that do not have it. Note it swaps *within* one host -- it is not a substitute for the gateway |
+| Transport | **SSH tunnels**, one local port per remote node | Reuses the ssh aliases and keys this repo already manages, and leaves every runtime on loopback |
+
+**Do not bind a runtime to `0.0.0.0`.** ollama's server is unauthenticated; on a LAN
+that is an open completion endpoint and, worse, an open file-write endpoint via model
+creation. An SSH tunnel from the gateway host costs one long-lived process per node and
+closes the question:
+
+```sh
+ssh -N -L 11435:127.0.0.1:11434 <alias>   # that node now answers on 127.0.0.1:11435
+```
+
+A WireGuard or Tailscale mesh is the alternative when nodes roam off the LAN, and is
+the better answer once laptops are involved full time -- but it is a second piece of
+infrastructure to own, so start with tunnels.
+
+### Assigning roles
+
+Specialise by what each node is *best* at, not by what it can merely run. The pattern,
+in capability terms:
+
+| Alias | Wants | Because |
+|---|---|---|
+| `fast` | The highest-bandwidth GPU, smallest model | Bandwidth sets tok/s, and a 4B model on a discrete card feels instant |
+| `chat` | The most unified memory | A 20-30B MoE needs capacity more than bandwidth, and that is what a large Mac has |
+| `long` | The most RAM behind the GPU | KV overflow lives in system RAM; reach comes from capacity |
+| `vision` | Wherever the vision model is resident | Visual tokens land in the KV cache, so this one wants headroom, not speed |
+| `embed`, `rerank`, `stt`, `ocr` | The weakest always-on node | All small, all tolerant of modest hardware, and all better off never competing with interactive work |
+
+Two practical rules fall out of it:
+
+- **Intermittent nodes are never primary.** A laptop sleeps, and leaves the house. Give
+  the gateway a health check and a fallback for every alias a laptop serves, and keep
+  the always-on machine as the default for anything interactive. A Mac serving a shift
+  wants to stay awake while it does -- `caffeinate -s` for the duration, rather than a
+  permanent power-setting change.
+- **One resident model per node is the point.** Pointing two aliases at the same node
+  reintroduces exactly the eviction cost that spreading them out removed.
+
+### Uniform surface beats a faster runtime, at first
+
+On Apple Silicon, MLX-based servers generally beat GGUF-on-Metal for the same model, so
+there is a real argument for an MLX runtime on the strongest Mac. There is a better
+argument for running **the same ollama surface everywhere** to begin with: identical
+API shape, identical environment variables, identical verification, and one recipe
+shape per platform. Add the faster runtime to the one node where the gain is worth a
+second thing to maintain, not to all of them.
+
+## Status: capacity pooling is closed
+
+Decided 2026-11-10, after the Thunderbolt 5 finding above. **Capacity pooling is not
+being pursued on this fleet.** The reasoning is now short enough to state as three
+facts:
+
+1. The only fabric that makes splitting a model fast is Apple-to-Apple, and this fleet
+   is mixed, so the fast path is unavailable by construction.
+2. The cross-platform path, llama.cpp RPC, buys capacity at a throughput cost and says
+   so itself. Nothing currently worth running fails to fit on a single node.
+3. The cheap lever is elsewhere. Harness overhead and model choice are worth 20x
+   between them; clustering is the most expensive item on the list for the smallest
+   gain.
+
+So the clustering question resolves to **throughput pooling**, and the only open work
+is the gateway in *[What to build instead](#what-to-build-instead)* -- which needs
+nothing distributed. Two triggers would reopen the question, and only these two:
+
+- **A model worth running that fits nowhere on one node.** Capacity is the one thing
+  pooling genuinely delivers.
+- **Two Thunderbolt 5 Macs on macOS 26.2 or later.** The only configuration where
+  pooling buys speed as well.
+
+Neither is a reason to hold the question open in the meantime. The sizing method below
+is unaffected: it describes single nodes, which is what this fleet will run.
 
 ## Sizing a node
 
@@ -198,12 +356,16 @@ beside the collected inventory is the right home; see below.
 
 `bin\install.ps1 ollama` installs the runtime on a Windows node and pulls a default
 set of models sized for an **8 GB-class CUDA card** -- `qwen3:8b` for interactive
-work, `qwen2.5-coder:7b` for editor completion (it has the fill-in-middle tokens that
-needs, and no Qwen3 coder is small enough), `qwen3:4b` for anything that should feel
-instant, and `qwen2.5vl:7b` for image input, since the other three are text-only.
-About 17.1 GB of weights in total.
+work, `qwen3:4b` as the base for the derived agent models and for anything that should
+feel instant, and `qwen2.5vl:7b` for image input, since the other two are text-only.
+About 12.8 GB of weights in total.
 
-Four models on an 8 GB card is not a contradiction: `OLLAMA_MAX_LOADED_MODELS` is 1,
+A fill-in-the-middle completion model was in this set and was dropped: measured against
+Rust it produced a correct idiomatic body on an easy case and non-compiling code on a
+lifetime-bounded iterator, which is the wrong failure mode for a tool that inserts
+rather than suggests.
+
+Three models on an 8 GB card is not a contradiction: `OLLAMA_MAX_LOADED_MODELS` is 1,
 so they swap rather than compete, and each one past the first costs disk rather than
 VRAM. Sizing is per model, not per set.
 
@@ -243,10 +405,9 @@ about 40% of its throughput. So 16384 is free and 32768 is expensive, with nothi
 between to tune. Raise it on a larger card and confirm `ollama ps` still reports
 100% GPU; drop `OLLAMA_KV_CACHE_TYPE` to compare quality against an unquantised cache.
 
-Still to do, and the reason this is only half of step 3 below: a **gateway**. One
-OpenAI-compatible endpoint in front of the per-machine runtimes (LiteLLM, llama-swap
-or nginx) is what turns several boxes each running ollama into something worth calling
-a cluster. Nothing distributed is required for it.
+Still to do, and the reason this is only half of step 3 below: a **gateway**. That is
+now the main open piece of work, and it has its own section -- see
+*[Routing](#routing-one-endpoint-many-machines)*.
 
 ## Taking inventory
 
@@ -294,23 +455,96 @@ the inventory a public dotfiles repo must not carry. `.gitignore` also refuses
 Load your key into the agent first (`ssh-add`) if it has a passphrase, or SSH will
 prompt once per host.
 
-## Next steps
+## Next steps: evaluating the fleet
 
-1. **Wire up any node still on Wi-Fi** and re-run the inventory to confirm the link
-   speed. Clustering only; a single node never touches the network.
-2. **Collect every node**, then decide which machine should be primary. The one with
-   the most VRAM takes the interactive model.
-3. **Stand up one runtime plus a gateway** before attempting anything distributed.
-   The runtime is done: `bin\install.ps1 ollama` (see *[Running models](#running-models)*).
-   The gateway is not.
-4. **Only then** evaluate llama.cpp RPC, and only if a model worth running fits
-   nowhere on a single node.
+Six stages, in order, each with the condition that says it is finished. Nothing here is
+distributed, and nothing here should be bought before stage 2 says what the fleet
+actually is.
+
+**0. Make every node reachable.** Each machine needs an ssh alias in
+`~/.ssh/config.local` and a line in `fleet.hosts`; on a Mac that also means enabling
+**Remote Login** (System Settings > General > Sharing). Load the key once with
+`ssh-add`.
+*Done when* `ssh <alias> true` succeeds for every node without a prompt.
+
+**1. Collect, do not estimate.** `scripts/fleet-inventory.sh` with no arguments reads
+the host list and pipes the matching collector over SSH.
+*Done when* the inventory directory holds one JSON per node. Re-run it after plugging
+in any node still on Wi-Fi.
+
+**2. Classify each node from four facts.** This is the stage that answers what routing
+can achieve, and it is mechanical once the numbers exist:
+
+| Fact | Threshold | What it decides |
+|---|---|---|
+| Architecture | Apple Silicon or discrete GPU; **Intel Mac excluded** | Whether the node is a candidate at all |
+| Memory bandwidth | ~100-120 GB/s base Apple chip, ~200-273 Pro, ~400-546 Max, ~800 Ultra, ~272 for a mid-range discrete card | Speed, so which node takes the latency-sensitive aliases |
+| Usable memory for weights | Unified memory on a Mac; VRAM on a discrete card | Capacity, so which node takes the large-model aliases |
+| Always on, or not | A desktop versus a laptop | Whether an alias may be primary, or needs a fallback behind it |
+
+*Done when* every node has exactly one role and one set of aliases, by the table in
+*[Assigning roles](#assigning-roles)* -- and no alias is assigned twice to the same
+node, which would reintroduce the eviction cost that spreading them out removed.
+
+**3. Choose the gateway host.** It wants to be always on and always reachable, and it
+should be the node that is **least valuable as compute**: a proxy is I/O-bound and
+costs a few MB of memory, so putting it on the strongest machine wastes that machine.
+*Done when* one host is named, and every other node is a back end rather than a peer.
+
+**4. One runtime per node, on loopback.** The Windows side is done --
+`bin\install.ps1 ollama`, see *[Running models](#running-models)*. A macOS counterpart
+recipe does not exist yet and is the first piece of code this plan needs. A small
+always-on node runs embeddings and nothing else.
+*Done when* each node answers on its own `127.0.0.1` and reports the models it holds.
+
+**5. Tunnels, then the gateway.** One `ssh -N -L` per remote node, then LiteLLM in
+front with the aliases from stage 2, a health check per back end and a fallback for
+every alias a laptop serves.
+*Done when* a harness configured with **only** the gateway URL can reach every alias,
+and sleeping a laptop does not produce an error the harness sees.
+
+**6. Measure what it bought**, against the criteria below -- which are fixed now, on
+purpose, so the answer cannot be rationalised after the build.
+
+### What "meaningful" means, decided in advance
+
+| Question | Measurement | Worth it if |
+|---|---|---|
+| Residency | Simultaneously-resident models across the fleet; time to first token on an alias untouched for 30 minutes | No evict-and-reload stall anywhere -- the single-node cost today |
+| Concurrency | Two harnesses on two aliases at once, versus both on one node | Neither stalls the other |
+| Capacity class | Largest model the fleet can serve **fully resident** | It is a class no single node can hold -- the 20-30B MoE band |
+| Resilience | Sleep a laptop mid-session | The alias falls back; the harness never sees it |
+| Cost of the layer | Gateway overhead per request | Single-digit milliseconds, unmeasurable beside generation |
+
+### The fork this turns on
+
+What stage 2 finds decides how much routing is worth, and the three outcomes are worth
+naming before the numbers arrive, so that a disappointing answer is recognised as one:
+
+- **At least one Pro/Max-tier Apple Silicon node with 32 GB or more.** Routing delivers
+  a *capacity class the fleet does not have today*. Highest value; build all six stages.
+- **Every node base-tier, 24 GB or less.** No new capacity class. What remains is
+  residency, concurrency, and moving embeddings and vision off the interactive card --
+  real, and still worth the gateway, but a convenience layer rather than a capability
+  jump. Do not buy hardware for it.
+- **The candidate nodes turn out to be Intel.** They are excluded on bandwidth, and
+  routing reduces to a stable URL in front of one GPU node plus an embedding node. Build
+  the gateway anyway, for the stable URL; stop there.
+
+**Capacity pooling stays closed** throughout -- see
+*[Status](#status-capacity-pooling-is-closed)*. llama.cpp RPC is off the list until one
+of the two triggers named there fires, and neither is a thing to go looking for.
 
 ## Sources
 
 Secondary sources except where noted; flags, ports, and project status should be
 confirmed against each project's own documentation before relying on them.
 
+- [Apple WWDC26 session 233 -- distributed inference and training with MLX](https://wwdc.ai/2026/233)
+- [Run local agentic AI on the Mac using MLX (WWDC26)](https://developer.apple.com/videos/play/wwdc2026/232/)
+- [Mac LLM cluster: the complete 2026 guide](https://macfax.com/blog/at-home-mac-inference-cluster-the-complete-2026-guide)
+- [EXO framework guide: distributed local AI in 2026](https://toolhalla.ai/blog/exo-framework-distributed-inference-guide-2026)
+- [awesome-apple-silicon-llm](https://github.com/raullenchai/awesome-apple-silicon-llm)
 - [llama.cpp distributed benchmarks](https://github.com/kjaiswal/llama-cpp-distributed-benchmarks)
 - [Distributed llama.cpp RPC on Jetson (Seeed Studio wiki)](https://wiki.seeedstudio.com/ai_robotics_distributed_llama_cpp_rpc_jetson/)
 - [Multi-node local LLM inference guide, 2026](https://fungies.io/multi-node-local-llm-inference-guide-2026)

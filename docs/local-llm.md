@@ -499,7 +499,9 @@ being precise about which problem it addresses:
   parallelism, which would actually divide the per-token work, needs interconnect
   bandwidth in the NVLink class; over Ethernet the all-reduce traffic per layer
   dominates and throughput collapses. See *Why pooling VRAM over a LAN disappoints*
-  in [llm-cluster.md](llm-cluster.md).
+  in [llm-cluster.md](llm-cluster.md). There is exactly one consumer exception —
+  Apple Silicon over Thunderbolt 5 RDMA — and it cannot include a CUDA node, so it
+  does not apply to this machine.
 - **It does raise the capacity ceiling.** With layers sharded across nodes, each node
   holds the KV cache for its own layers, so total resident window and total model size
   both scale with the number of GPUs. That is a real gain, and it is the only one.
@@ -507,6 +509,13 @@ being precise about which problem it addresses:
 So clustering is the answer to "I want to run a model this machine cannot hold", not
 to "I want more context at a usable speed". It also costs a second GPU machine to find
 out, which makes it the most expensive item on a list where the cheapest item is 20×.
+
+**Closed on 2026-11-10 for exactly that reason** — see *Status: capacity pooling is
+closed* in [llm-cluster.md](llm-cluster.md). What is worth building instead is
+**routing**: one endpoint in front of one runtime per machine, so several models stay
+resident at once rather than evicting each other on this card. Routing crosses the
+network once per *request* instead of once per token, which is why it works on a LAN
+when splitting a model does not.
 
 The order of leverage, measured rather than assumed:
 
@@ -569,8 +578,21 @@ and comparing it to the card's capacity.
   that — a logon task rather than a `Run` entry because a console program in `Run`
   flashes a window, and as the logged-in user rather than SYSTEM because the `OLLAMA_*`
   settings are *user* environment variables, which a SYSTEM task would not read.
+- **Video or image generation.** A different workload, and on an 8 GB card a closed
+  question rather than a tuning exercise. What fits is `Wan 2.2 TI2V-5B` (5 s at 720p,
+  and only with ComfyUI's offloading — the official scripts want 24 GB), `Wan 2.1
+  1.3B` as GGUF at 480p in 4–6 GB, and `CogVideoX 1.5-5B`. The current front-runner,
+  LTX-2.3, wants ~16 GB at FP8 and 64 GB of system RAM, so it is out on both counts.
+  None of them produce audio. A few silent seconds at 480–720p, minutes per clip, is
+  below anything publishable, so this is a rent-not-build case — and the diffusion
+  model wants the same 8 GB the server is holding, so the two evict each other anyway.
+  The service comparison belongs with the sizing note beside the collected inventory,
+  not in this repository.
 - **Anything over the network.** The server is bound to localhost and unauthenticated.
-  Exposing it is a separate decision with its own requirements, not a flag.
+  Exposing it is a separate decision with its own requirements, not a flag — and the
+  answer is a tunnel or a mesh, not `OLLAMA_HOST=0.0.0.0`. An unauthenticated ollama on
+  a LAN is an open completion endpoint *and* an open file-write endpoint via model
+  creation. See *Routing* in [llm-cluster.md](llm-cluster.md).
 
 ## Sources
 
