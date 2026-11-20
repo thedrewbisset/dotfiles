@@ -25,10 +25,10 @@ github.com/tmux-plugins/tmux-continuum
 github.com/paperclipai/paperclip
 
 # Sources cited by docs/llm-cluster.md: a distributed llama.cpp benchmark write-up,
-# exo's archived repository, and an Apple Silicon LLM index. Referenced, not installed.
+# exo's archived and current repositories. Referenced, not installed.
 github.com/kjaiswal/llama-cpp-distributed-benchmarks
 github.com/exo-explore/ex-exo
-github.com/raullenchai/awesome-apple-silicon-llm
+github.com/exo-explore/exo
 
 # fnm's upstream, linked from the README. Installed from winget (Schniz.fnm), not
 # from a clone.

@@ -48,24 +48,26 @@ across the two or three strongest machines and leave the rest out of it.
 Everything above assumes Ethernet. One interconnect now in consumer hands escapes it.
 Apple's WWDC26 session 233 covers multi-Mac inference with **MLX over RDMA on
 Thunderbolt 5**, using their JACCL collective library; `mlx.launch` starts a
-distributed job over SSH from a JSON hostfile. Apple reports **up to 3x with four
-nodes** -- throughput scaling rather than merely capacity, and so the one published
-case of a LAN-class fabric making tensor parallelism pay. `exo` runs topology-aware
-tensor parallelism on the same stack.
+distributed job over SSH from a JSON hostfile, which `mlx.distributed_config` can
+generate. Apple reports **up to 3x with four nodes** (session 232; the session 233
+demo shows nearly 3x on four M3 Ultras) -- throughput scaling rather than merely
+capacity, and so the one published case of a LAN-class fabric making tensor
+parallelism pay. `exo` runs tensor parallelism on the same stack.
 
 The conditions are narrow enough to settle eligibility on their own:
 
 | Requirement | Consequence |
 |---|---|
-| Thunderbolt 5 | M4 Pro/Max or M3 Ultra class. TB3 and TB4 nodes do not qualify |
-| macOS 26.2+, MLX 0.30.1+ | Both ends, both versions |
+| Thunderbolt 5 | M4 Pro, M4 Max, M3 Ultra or later Pro/Max/Ultra chips. Base chips ship TB4, and TB3/TB4 nodes do not qualify |
+| macOS 26.2+ on every node | Enabled with `rdma_ctl enable` from Recovery, so it **cannot be set up remotely** |
+| A full mesh | JACCL supports only fully connected topologies: a direct cable between every pair of Macs |
 | Apple Silicon only | MLX has no CUDA backend, so **no Windows or Linux GPU node can join** |
 
 That last row is the one that matters when planning: a mixed fleet cannot use the only
 fabric that would make capacity pooling fast. The fast path is Apple-to-Apple; the
-cross-platform path is llama.cpp RPC, which is explicitly not speed-optimised. Treat
-the published multi-node figures as enthusiast measurements until something independent
-appears.
+cross-platform path is llama.cpp RPC, which is explicitly not speed-optimised. The
+speedups above are vendor demos -- Apple's own caveat is that they depend on model size
+and architecture -- and no independent benchmark has been checked.
 
 ### Architecture class decides eligibility before anything else
 
@@ -73,7 +75,7 @@ Whether a node has a GPU is the wrong screen. The useful one is **unified memory
 discrete**, and it is read off memory bandwidth:
 
 - **Apple Silicon** is a GPU with unified memory: fitted RAM is usable model capacity,
-  from roughly 100-120 GB/s on a base chip to around 800 GB/s on an Ultra.
+  from about 68 GB/s on a base M1 (100-120 on later base chips) to around 800 GB/s on an Ultra.
 - **An Intel Mac is a dead end here.** No usable GPU for this work, and DDR4 bandwidth
   in the 25-50 GB/s range against ~272 GB/s on a mid-range discrete card. Inference is
   bandwidth-bound, so that gap *is* the result.
@@ -106,7 +108,7 @@ a working wireless link is both easy to overlook and expensive to keep.
 | Option | Verdict |
 |---|---|
 | **llama.cpp RPC backend** | Start here if capacity pooling is genuinely needed. The most mature option and the only comfortable one for mixed CUDA + Metal + CPU nodes. |
-| **exo** | Apple-only in practice now: topology-aware tensor parallelism on MLX over TB5 RDMA, needing macOS 26.2+. Verify before investing -- the repository found for it is archived. |
+| **exo** | Active, with a macOS app and dashboard. Apple-only in practice: GPU inference runs on MLX on macOS, and on Linux it currently runs on CPU. |
 | **prima.cpp** | Research-grade, but aimed exactly at heterogeneous low-resource home clusters. Closest match to this problem. |
 | **vLLM + Ray** | Excellent and production-grade, but not for a cluster like this: it wants homogeneous GPUs, a fast interconnect, and more than 8 GB per worker. |
 | **Petals** | A different problem -- swarm serving of very large models. |
@@ -128,13 +130,12 @@ not to make a model that already fits run faster.
 
 **exo.** Connects peer to peer with no master/worker split and partitions a model
 by each device's memory ratio, which is the right design for mismatched hardware.
-The caveat is practical rather than technical: the repository located for it
-(`exo-explore/ex-exo`) is **archived**, and claims that it matured during 2026 into
-a packaged product with a macOS app and a cluster dashboard trace back to a
-community wiki that could not be confirmed against any release. Check the official
-repository's current state first. What *is* documented is the direction: the current
-work is topology-aware tensor parallelism over the Thunderbolt 5 RDMA path above, which
-also makes it Apple-only and therefore no use to a mixed fleet.
+The earlier codebase, `exo-explore/ex-exo`, was archived in December 2025; current
+development is in `exo-explore/exo`, which ships a macOS menu-bar app, a cluster
+dashboard and day-0 support for RDMA over Thunderbolt 5, and claims up to 1.8x on two
+devices and 3.2x on four with tensor parallelism. Its README is also plain that on
+Linux it currently runs on CPU, with GPU support still in development -- so in
+practice it is Apple-only, and no use to a mixed fleet.
 
 ## What to build instead
 
@@ -478,7 +479,7 @@ can achieve, and it is mechanical once the numbers exist:
 | Fact | Threshold | What it decides |
 |---|---|---|
 | Architecture | Apple Silicon or discrete GPU; **Intel Mac excluded** | Whether the node is a candidate at all |
-| Memory bandwidth | ~100-120 GB/s base Apple chip, ~200-273 Pro, ~400-546 Max, ~800 Ultra, ~272 for a mid-range discrete card | Speed, so which node takes the latency-sensitive aliases |
+| Memory bandwidth | ~68 GB/s base M1 and ~100-120 later base chips, ~150-273 Pro, ~300-546 Max, ~800 Ultra, ~272 for a mid-range discrete card | Speed, so which node takes the latency-sensitive aliases |
 | Usable memory for weights | Unified memory on a Mac; VRAM on a discrete card | Capacity, so which node takes the large-model aliases |
 | Always on, or not | A desktop versus a laptop | Whether an alias may be primary, or needs a fallback behind it |
 
@@ -540,11 +541,11 @@ of the two triggers named there fires, and neither is a thing to go looking for.
 Secondary sources except where noted; flags, ports, and project status should be
 confirmed against each project's own documentation before relying on them.
 
-- [Apple WWDC26 session 233 -- distributed inference and training with MLX](https://wwdc.ai/2026/233)
-- [Run local agentic AI on the Mac using MLX (WWDC26)](https://developer.apple.com/videos/play/wwdc2026/232/)
-- [Mac LLM cluster: the complete 2026 guide](https://macfax.com/blog/at-home-mac-inference-cluster-the-complete-2026-guide)
-- [EXO framework guide: distributed local AI in 2026](https://toolhalla.ai/blog/exo-framework-distributed-inference-guide-2026)
-- [awesome-apple-silicon-llm](https://github.com/raullenchai/awesome-apple-silicon-llm)
+- [Explore distributed inference and training with MLX (WWDC26 session 233, primary)](https://developer.apple.com/videos/play/wwdc2026/233/)
+- [Run local agentic AI on the Mac using MLX (WWDC26 session 232, primary)](https://developer.apple.com/videos/play/wwdc2026/232/)
+- [TN3205: Low-latency communication with RDMA over Thunderbolt (primary)](https://developer.apple.com/documentation/technotes/tn3205-low-latency-communication-with-rdma-over-thunderbolt)
+- [MLX distributed communication: the JACCL backend (primary)](https://ml-explore.github.io/mlx/build/html/usage/distributed.html)
+- [exo-explore/exo (primary)](https://github.com/exo-explore/exo)
 - [llama.cpp distributed benchmarks](https://github.com/kjaiswal/llama-cpp-distributed-benchmarks)
 - [Distributed llama.cpp RPC on Jetson (Seeed Studio wiki)](https://wiki.seeedstudio.com/ai_robotics_distributed_llama_cpp_rpc_jetson/)
 - [Multi-node local LLM inference guide, 2026](https://fungies.io/multi-node-local-llm-inference-guide-2026)
