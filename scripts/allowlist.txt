@@ -45,3 +45,6 @@ git@github.com
 storage.local
 zshrc.local
 config.local
+
+# Handy, the per-machine dictation app named in docs/llm-cluster.md. Referenced, not installed.
+github.com/cjpais/Handy

@@ -225,7 +225,11 @@ in capability terms:
 | `chat` | The most unified memory | A 20-30B MoE needs capacity more than bandwidth, and that is what a large Mac has |
 | `long` | The most RAM behind the GPU | KV overflow lives in system RAM; reach comes from capacity |
 | `vision` | Wherever the vision model is resident | Visual tokens land in the KV cache, so this one wants headroom, not speed |
-| `embed`, `rerank`, `stt`, `ocr` | The weakest always-on node | All small, all tolerant of modest hardware, and all better off never competing with interactive work |
+| `embed`, `rerank`, `ocr` | The weakest always-on node | All small, all tolerant of modest hardware, and all better off never competing with interactive work |
+
+Speech-to-text is deliberately not an alias. Dictation runs on each machine in
+[Handy](https://github.com/cjpais/Handy), which ships for Windows, macOS and Linux and
+has CPU-friendly models, so it neither crosses the network nor competes for the card.
 
 Two practical rules fall out of it:
 
