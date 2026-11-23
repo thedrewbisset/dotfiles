@@ -41,6 +41,7 @@ sip hugo
 sip ios-deploy
 sip jq
 sip llvm
+sip mobile-dev-inc/tap/maestro
 sip postgresql@16
 sip rbenv
 sip redis
